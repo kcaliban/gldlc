@@ -6,6 +6,7 @@ open import Data.Integer renaming (_+_ to _+ᶻ_ ; _≤_ to _≤ᶻ_ ; _≥_ to 
 open import Data.Integer.Properties using (⊖-≥ ; 0≤n⇒+∣n∣≡n ; +-monoˡ-≤)
 open import Data.Fin
 open import Data.Fin.Subset renaming (∣_∣ to ∣_∣ˢ)
+open import Data.Vec hiding (_++_ ; length)
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
 open import Relation.Nullary.Negation
@@ -13,12 +14,18 @@ open import Relation.Binary.PropositionalEquality renaming (trans to ≡-trans)
 open import Data.Product
 open import Data.Sum
 
--- PROPERTIES, TO BE MOVED TO SEPERATE FILE
+-- REQUIRED PROPERTIES, TO BE MOVED TO SEPERATE FILE
+empty-subset-outside : {n : ℕ} → (x : Fin n) → ¬ (⊥ [ x ]= inside)
+empty-subset-outside {.(ℕ.suc _)} zero ()
+empty-subset-outside {.(ℕ.suc _)} (Fin.suc x) (there ins) = empty-subset-outside x ins
+
 x∈[l]⇒x≡l : {n : ℕ} {x l : Fin n} → x ∈ ⁅ l ⁆ → x ≡ l
-x∈[l]⇒x≡l {n} {x} {l} ins = {!!}
+x∈[l]⇒x≡l {.(ℕ.suc _)} {zero} {zero} ins = refl
+x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {zero} (there ins) = contradiction ins (empty-subset-outside x)
+x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {Fin.suc l} (there ins) = cong Fin.suc (x∈[l]⇒x≡l ins)
 
 l∈L⇒[l]⊆L : {n : ℕ} {l : Fin n} {L : Subset n} → l ∈ L → ⁅ l ⁆ ⊆ L
-l∈L⇒[l]⊆L {n} {l} {L} ins x = {!!}
+l∈L⇒[l]⊆L {n} {l} {L} ins x rewrite (x∈[l]⇒x≡l x) = ins
 
 module defs where
   data Exp {n : ℕ} : Set where
@@ -248,15 +255,41 @@ module defs where
               → L' ⊆ L
               → Γ ⊢ (f l ins) ⇓ D
               → Γ ⊢ CaseT V f ⇓ D
-    AUCaseX-P : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})}
+    AUCaseX-P : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (LabI l) (Label L)}
               → Γ ⇒ D ≤ Label L
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = {!!}}) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = {!!}}) ⇒ A ≤ (fᴬ l i))
-              → (Γ' ++ ⟨ D , Γ ⟩ {ok = {!!}}) ⊢ CaseT (Var (length Γ')) fᴮ ⇓ Pi A (CaseT (Var (length Γ')) fᴰ)
-    AUCaseX-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})}
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = ok' l i}) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≤ (fᴬ l i))
+              → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⊢ CaseT (Var (length Γ')) fᴮ ⇓ Pi A (CaseT (Var (length Γ')) fᴰ)
+    AUCaseX-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (LabI l) (Label L)}
               → Γ ⇒ D ≤ Label L
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = {!!}}) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = {!!}}) ⇒ A ≤ (fᴬ l i))
-              → (Γ' ++ ⟨ D , Γ ⟩ {ok = {!!}}) ⊢ CaseT (Var (length Γ')) fᴮ ⇓ Sigma A (CaseT (Var (length Γ')) fᴰ)
-    
-    
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = ok' l i}) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (LabI l) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≤ (fᴬ l i))
+              → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⊢ CaseT (Var (length Γ')) fᴮ ⇓ Sigma A (CaseT (Var (length Γ')) fᴰ)
+
+module examples where
+  open defs
+
+  -- x : {l₁, l₂} ⊢ case x of {l₁ : (), l₂ : l₃} ⇒ case x of {l₁ : Unit, l₂ : S{l₃ : {l₃}}}
+  [l1,l2] : Subset 3
+  [l1,l2] = inside ∷ (inside ∷ (outside ∷ []))
+
+  [l3] : Subset 3
+  [l3] = outside ∷ (outside ∷ (inside ∷ []))
+
+  f₁ : (l : Fin 3) → l ∈ [l1,l2] → Exp {n = 3}
+  f₁ zero here = UnitE
+  f₁ (Fin.suc zero) (there here) = LabI (Fin.suc (Fin.suc zero))
+  f₁ (Fin.suc (Fin.suc .(Fin.suc _))) (there (there (there ())))
+
+  f₂ : (l : Fin 3) → l ∈ [l1,l2] → Ty {n = 3}
+  f₂ zero here = UnitT
+  f₂ (Fin.suc zero) (there here) = Single (LabI (Fin.suc (Fin.suc zero))) (Label [l3])
+  f₂ (Fin.suc (Fin.suc .(Fin.suc _))) (there (there (there ())))
+
+  _ : ⟨ Label [l1,l2] , [] ⟩ {ok = LabF} ⊢ CaseE{s = [l1,l2]} (Var 0) f₁ ⇒ CaseT{s = [l1,l2]} (Var 0) f₂
+  _ = LabAEx (ASubLabel (λ x → x)) g
+    where g : (l : Fin 3) → (i : l ∈ [l1,l2])
+              → ⟨ Single (LabI l) (Label [l1,l2]) , [] ⟩ {ok = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (l∈L⇒[l]⊆L i)))) (notsingle (λ W B → λ ()))} ⊢ f₁ l i ⇒ f₂ l i
+          g zero here = UnitAI
+          g (Fin.suc zero) (there here) = LabAI
+          g (Fin.suc (Fin.suc zero)) (there (there ()))
