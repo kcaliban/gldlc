@@ -293,3 +293,39 @@ module examples where
           g zero here = UnitAI
           g (Fin.suc zero) (there here) = LabAI
           g (Fin.suc (Fin.suc zero)) (there (there ()))
+
+  ----------------------------------------------------------------------
+  
+  -- [] ⊢ ⟨ x : {l₁} = l₁ , case x of {l₁ : ()} ⟩ ⇒ Σ (x : {l₁}) (case x of {l₁ : Unit})
+  [l1] : Subset 1
+  [l1] = inside ∷ []
+
+  premise : (⟨ Label [l1] , [] ⟩ {ok = LabF}) ⊢ CaseE (Var 0) (λ l x → UnitE) ⇒ CaseT (Var 0) (λ l x → UnitT)
+  premise = (LabAEx{ok' = ok'} (ASubLabel (λ x → x)) (λ l i → UnitAI))
+     where ok' : (l : Fin 1) → l ∈ [l1] → [] ⊢ Single (LabI l) (Label [l1])
+           ok' zero here = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (λ x → x)))) (notsingle (λ W B → λ ()))
+          
+  J : [] ⊢ Prod (LabI zero) (CaseE{s = [l1]} (Var 0) (λ l x → UnitE)) ⇒ Sigma (Label [l1]) (CaseT{s = [l1]} (Var 0) (λ l x → UnitT))
+  J = SigmaAI{ok = LabF} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (λ x → x))))
+                         premise
+
+  -- The expression reduces as follows:
+  --
+  --   ⟨ x : {l₁} = l₁ , case x of {l₁ : ()} ⟩
+  -- → ⟨⟨ l₁ , () ⟩⟩
+  --
+  -- Only typing rule applicable to ⟨⟨ l₁ , () ⟩⟩ is Pair-A-I
+  -- {l₁} becomes S{l₁ : {l₁}}, since Pair-A-I requires type inference (⇒), not checking (⇐)
+  premise' : ⟨ Single (LabI zero) (Label (inside ∷ ⊥)) , [] ⟩ ⊢ UnitE ⇒ UnitT
+  
+  J' : [] ⊢ ProdV (LabI zero) UnitE ⇒ Sigma (Single (LabI zero) (Label [l1])) UnitT
+  J' = PairAI{ok = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (λ x → x)))) (notsingle (λ W B → λ ()))}{val = VLab} LabAI premise'
+
+  -- Premise' is easy to infer in this example:
+  premise' = UnitAI
+
+  -- But the premise required for PairAI does not automatically follow from the premise require for SigmaAI
+  -- Substitution lemma removes the variable from the environment, leaving us in this example only with
+  premise'' : [] ⊢ UnitE{n = 1} ⇒ UnitT
+  premise'' = UnitAI
+  
