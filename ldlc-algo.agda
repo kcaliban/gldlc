@@ -36,12 +36,12 @@ module defs where
     LabI : Fin n → Exp {n}
     CaseE : {s : Subset n} → Exp {n} → (f : ∀ l → l ∈ s → Exp {n}) → Exp {n}
     Prod : Exp {n} → Exp {n} → Exp {n}
-    ProdV : Exp {n} → Exp {n} → Exp {n} -- first expression must be value!
+    ProdV : Exp {n} → Exp {n} → Exp {n}
     Let : Exp {n} → Exp {n} → Exp {n}
 
   data Val {n : ℕ} : Exp {n} → Set where
-    VUnit : {n : ℕ} → Val UnitE
-    VVar : {n : ℕ} → Val (Var n)
+    VUnit : Val UnitE
+    VVar : {i : ℕ} → Val (Var i)
     VLab : {x : Fin n} → Val (LabI x)
     VFun : {N : Exp} → Val (Abs N)
     VProd : {N M' : Exp} → Val N → Val M' → Val (ProdV N  M')
@@ -186,7 +186,7 @@ module defs where
              → ⟨ A , Γ ⟩ {ok} ⇒ B ≤ B'
              → Γ ⇒ Pi A B ≤ Pi A' B'
     ASubSigma : {Γ : TEnv {n}} {A A' B B' : Ty {n}} {ok : Γ ⊢ A}
-                → Γ ⇒ A' ≤ A
+                → Γ ⇒ A ≤ A'
                 → ⟨ A , Γ ⟩ {ok} ⇒ B ≤ B'
                 → Γ ⇒ Sigma A B ≤ Sigma A' B'
     ASubCaseLL : {Γ : TEnv {n}} {B : Ty {n}} {V : Exp {n}} {val : Val V} {l : Fin n} {L L' : Subset n} {f : ∀ l → l ∈ L → Ty {n}} {ins : l ∈ L}
