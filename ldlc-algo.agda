@@ -1,4 +1,4 @@
--- {-# OPTIONS --show-implicit #-}
+-- {-# OPTIONS --show-implicit #-} -- in case of emergency
 module ldlc-algo where
 
 open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
@@ -143,11 +143,30 @@ module defs where
   -- variable in type
   data _∈`ᵀ_ {N : ℕ} : ℕ → Ty {N} → Set
 
-  ---- Algorithmic Typing
   -- Type environment
-  data TEnv {n : ℕ} : Set
-  -- Type environment access
-  data _∶_∈_ {n : ℕ} : ℕ → Ty {n} → TEnv {n} → Set
+  data TEnv {n : ℕ} : Set where
+    [] : TEnv
+    ⟨_,_⟩ : (T : Ty {n}) (Γ : TEnv {n}) → TEnv
+
+  _++_ : {n : ℕ} → TEnv {n} → TEnv {n} → TEnv {n}
+  [] ++ Γ' = Γ'
+  ⟨ T , Γ ⟩ ++ Γ' = ⟨ T , Γ ++ Γ' ⟩
+
+  ++-assoc : {n : ℕ} {Γ Γ' Γ'' : TEnv {n}} → Γ ++ (Γ' ++ Γ'') ≡ (Γ ++ Γ') ++ Γ''
+  ++-assoc {n} {[]} {Γ'} {Γ''} = refl
+  ++-assoc {n} {⟨ T , Γ ⟩} {Γ'} {Γ''} = cong (λ x → ⟨ T , x ⟩) (++-assoc{n}{Γ}{Γ'}{Γ''})
+
+  length : {n : ℕ} → TEnv {n} → ℕ
+  length {n} [] = zero
+  length {n} ⟨ T , Γ ⟩ = ℕ.suc (length Γ)
+
+  data _∶_∈_ {n : ℕ} : ℕ → Ty {n} → TEnv {n} → Set where
+    here : {T : Ty} {Γ : TEnv} → 0 ∶ T ∈ ⟨ T , Γ ⟩
+    there : {n : ℕ} {T₁ T₂ : Ty} {Γ : TEnv} → n ∶ T₁ ∈ Γ → (ℕ.suc n) ∶ T₁ ∈ ⟨ T₂ , Γ ⟩
+
+  ---- Algorithmic Typing
+  -- Type environment formation
+  data ⊢_ok {n : ℕ} : TEnv {n} → Set
   -- Type formation
   data _⊢_ {n : ℕ} : TEnv {n}→ Ty {n} → Set
   -- Type synthesis
@@ -161,43 +180,17 @@ module defs where
   -- Conversion
   data _⇒_≡_ {n : ℕ} : TEnv {n} → Ty {n} → Ty {n} → Set
 
-  -- Type environment concatenation & required proofs
-  _++_ : {n : ℕ} → TEnv {n} → TEnv {n} → TEnv {n}
-  
-  ∈++ : {n x : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} → x ∶ A ∈ Γ → x ∶ A ∈ (Γ ++ Γ')
-  ⊢-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} → Γ ⊢ A → (Γ ++ Γ') ⊢ A
-  ⊢⇒-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} {M : Exp {n}} → Γ ⊢ M ⇒ A → (Γ ++ Γ') ⊢ M ⇒ A
-  ⊢⇐-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} {M : Exp {n}} → Γ ⊢ M ⇐ A → (Γ ++ Γ') ⊢ M ⇐ A
-  ⇒≤-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⇒ A ≤ B → (Γ ++ Γ') ⇒ A ≤ B
-  ⇓-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A ⇓ B → (Γ ++ Γ') ⊢ A ⇓ B
-  ⇒≡-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⇒ A ≡ B → (Γ ++ Γ') ⇒ A ≡ B
-
-  -- Type environment length
-  length : {n : ℕ} → TEnv {n} → ℕ
-
   -- Implementations
-  data TEnv {n} where
-    [] : TEnv
-    ⟨_,_⟩ : (T : Ty) (Γ : TEnv {n}) {ok : Γ ⊢ T} → TEnv
---    _++_ : (Γ Γ' : TEnv {n}) → TEnv
+  data ⊢_ok {n} where
+    empty : ⊢ [] ok
+    entry : {Γ : TEnv {n}} {A : Ty {n}} → ⊢ Γ ok → Γ ⊢ A → ⊢ ⟨ A , Γ ⟩ ok
 
-  data _∶_∈_ {n} where
-    here : {T : Ty} {Γ : TEnv} {ok : Γ ⊢ T} → 0 ∶ T ∈ ⟨ T , Γ ⟩ {ok}
-    there : {n : ℕ} {T₁ T₂ : Ty} {Γ : TEnv} {ok : Γ ⊢ T₂} → n ∶ T₁ ∈ Γ → (ℕ.suc n) ∶ T₁ ∈ ⟨ T₂ , Γ ⟩ {ok}
-
-  [] ++ Γ' = Γ'
-  ⟨ T , Γ ⟩ {ok} ++ Γ' = ⟨ T , Γ ++ Γ' ⟩ {ok = ⊢-++ ok}
-  
-
-  length {n} [] = zero
-  length {n} ⟨ T , Γ ⟩ = ℕ.suc (length Γ)
-  
   data _⊢_ {n} where
-    UnitF : {Γ : TEnv {n}} → Γ ⊢ UnitT
-    LabF : {Γ : TEnv {n}} {L : Subset n} → Γ ⊢ Label L
-    PiF : {Γ : TEnv {n}} {A B : Ty {n}} → (ok : Γ ⊢ A) → ⟨ A , Γ ⟩ {ok} ⊢ B → Γ ⊢ Pi A B
-    SigmaF : {Γ : TEnv {n}} {A B : Ty {n}} → (ok : Γ ⊢ A) → ⟨ A , Γ ⟩ {ok} ⊢ B → Γ ⊢ Sigma A B
-    SingleF : {Γ : TEnv {n}} {A : Ty {n}} {e : Exp {n}} {V : Val e} → Γ ⊢ e ⇐ A → notSingle A → Γ ⊢ Single V A
+    UnitF : {Γ : TEnv {n}} → ⊢ Γ ok → Γ ⊢ UnitT
+    LabF : {Γ : TEnv {n}} {L : Subset n} → ⊢ Γ ok → Γ ⊢ Label L
+    PiF : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A → ⟨ A , Γ ⟩ ⊢ B → Γ ⊢ Pi A B
+    SigmaF : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A → ⟨ A , Γ ⟩ ⊢ B → Γ ⊢ Sigma A B
+    SingleF : {Γ : TEnv {n}} {A : Ty {n}} {e : Exp {n}} {V : Val e} → ⊢ Γ ok → Γ ⊢ e ⇐ A → notSingle A → Γ ⊢ Single V A
     CaseF : {Γ : TEnv {n}} {L : Subset n} {e : Exp {n}} {V : Val e} {f : ∀ l → l ∈ L → Ty {n}} {f-ok : ∀ l → (i : l ∈ L) → Γ ⊢ (f l i)} → Γ ⊢ e ⇐ Label L → Γ ⊢ CaseT V f
 
   data _⊢_⇐_ {n} where
@@ -210,13 +203,13 @@ module defs where
     ASubUnit : {Γ : TEnv {n}} → Γ ⇒ UnitT ≤ UnitT
     ASubLabel : {Γ : TEnv {n}} {L L' : Subset n} → L ⊆ L' → Γ ⇒ Label L ≤ Label L'
     ASubSingle : {Γ : TEnv {n}} {A B : Ty {n}} {e : Exp {n}} {V : Val e} → Γ ⇒ A ≤ B → Γ ⇒ Single V A ≤ B
-    ASubPi : {Γ : TEnv {n}} {A A' B B' : Ty {n}} {ok : Γ ⊢ A'}
+    ASubPi : {Γ : TEnv {n}} {A A' B B' : Ty {n}}
              → Γ ⇒ A' ≤ A
-             → ⟨ A' , Γ ⟩ {ok} ⇒ B ≤ B'
+             → ⟨ A' , Γ ⟩ ⇒ B ≤ B'
              → Γ ⇒ Pi A B ≤ Pi A' B'
-    ASubSigma : {Γ : TEnv {n}} {A A' B B' : Ty {n}} {ok : Γ ⊢ A}
+    ASubSigma : {Γ : TEnv {n}} {A A' B B' : Ty {n}}
                 → Γ ⇒ A ≤ A'
-                → ⟨ A , Γ ⟩ {ok} ⇒ B ≤ B'
+                → ⟨ A , Γ ⟩ ⇒ B ≤ B'
                 → Γ ⇒ Sigma A B ≤ Sigma A' B'
     ASubCaseLL : {Γ : TEnv {n}} {B : Ty {n}} {e : Exp {n}} {V : Val e} {l : Fin n} {L L' : Subset n} {f : ∀ l → l ∈ L → Ty {n}} {ins : l ∈ L}
                  → Γ ⊢ e ⇒ Single (VLab{x = l}) (Label L')
@@ -228,54 +221,54 @@ module defs where
                  → L' ⊆ L
                  → Γ ⇒ A ≤ (f l ins)
                  → Γ ⇒ A ≤ CaseT V f
-    ASubCaseXL : {Γ Γ' : TEnv {n}} {B D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)} {f : ∀ l → l ∈ L → Ty {n}}
+    ASubCaseXL : {Γ Γ' : TEnv {n}} {B D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                → Γ ⇒ D ≤ Label L
-               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ (f l i) ≤ B)  -- ok req constr LabAI. ok in LabAEx req constr ASubLabel. fix: ok'
-               → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⇒ CaseT (VVar{i = length Γ'}) f ≤ B
-    ASubCaseXR : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)} {f : ∀ l → l ∈ L → Ty {n}}
+               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ (f l i) ≤ B)
+               → (Γ' ++ ⟨ D , Γ ⟩) ⇒ CaseT (VVar{i = length Γ'}) f ≤ B
+    ASubCaseXR : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                → Γ ⇒ D ≤ Label L
-               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≤ (f l i))
-               → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⇒ A ≤ CaseT (VVar{i = length Γ'}) f               
+               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ A ≤ (f l i))
+               → (Γ' ++ ⟨ D , Γ ⟩) ⇒ A ≤ CaseT (VVar{i = length Γ'}) f               
              
   data _⊢_⇒_ {n} where
-    VarA : {Γ : TEnv {n}} {A : Ty {n}} {x : ℕ} → x ∶ A ∈ Γ → Γ ⊢ Var x ⇒ A
-    UnitAI : {Γ : TEnv {n}} → Γ ⊢ UnitE ⇒ UnitT
-    LabAI : {Γ : TEnv {n}} {l : Fin n} → Γ ⊢ LabI l ⇒ Single (VLab{x = l}) (Label ⁅ l ⁆)
+    VarA : {Γ : TEnv {n}} {A : Ty {n}} {x : ℕ} → ⊢ Γ ok → x ∶ A ∈ Γ → Γ ⊢ Var x ⇒ A
+    UnitAI : {Γ : TEnv {n}} → ⊢ Γ ok → Γ ⊢ UnitE ⇒ UnitT
+    LabAI : {Γ : TEnv {n}} {l : Fin n} → ⊢ Γ ok → Γ ⊢ LabI l ⇒ Single (VLab{x = l}) (Label ⁅ l ⁆)
     LabAEl : {Γ : TEnv {n}} {B : Ty {n}} {L L' : Subset n} {l : Fin n} {e : Exp {n}} {V : Val e} {ins : l ∈ L} {f : ∀ l → l ∈ L → Exp {n}}
              → Γ ⊢ e ⇒ Single (VLab{x = l}) (Label L')
              → L' ⊆ L
              → Γ ⊢ (f l ins) ⇒ B
              → Γ ⊢ CaseE V f ⇒ B
-    LabAEx : {Γ Γ' : TEnv {n}} {D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)} {f : ∀ l → l ∈ L → Exp {n}} {f-t : ∀ l → l ∈ L → Ty {n}}
+    LabAEx : {Γ Γ' : TEnv {n}} {D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Exp {n}} {f-t : ∀ l → l ∈ L → Ty {n}}
              → Γ ⇒ D ≤ Label L
-             → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ (Single (VLab{x = l}) (Label L)) , Γ ⟩ {ok = ok' l i}) ⊢ (f l i) ⇒ (f-t l i))  -- reason for ok' see ASubCaseXL
-             → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⊢ CaseE (VVar{i = length Γ'}) f ⇒ CaseT (VVar{i = length Γ'}) f-t
-    PiAI : {Γ : TEnv {n}} {A B : Ty {n}} {ok : Γ ⊢ A} {M : Exp {n}} → ⟨ A , Γ ⟩ {ok} ⊢ M ⇒ B → Γ ⊢ Abs M ⇒ Pi A B
+             → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ (Single (VLab{x = l}) (Label L)) , Γ ⟩) ⊢ (f l i) ⇒ (f-t l i))
+             → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseE (VVar{i = length Γ'}) f ⇒ CaseT (VVar{i = length Γ'}) f-t
+    PiAI : {Γ : TEnv {n}} {A B : Ty {n}}  {M : Exp {n}} → ⟨ A , Γ ⟩ ⊢ M ⇒ B → Γ ⊢ Abs M ⇒ Pi A B
     PiAE : {Γ : TEnv {n}} {A B D : Ty {n}} {M e : Exp {n}} {V : Val e}
            → Γ ⊢ M ⇒ D
            → Γ ⊢ D ⇓ Pi A B
            → Γ ⊢ e ⇐ A
            → Γ ⊢ ([ 0 ↦ V ]ᵀ B)
            → Γ ⊢ App M V ⇒ ([ 0 ↦ V ]ᵀ B)
-    SigmaAI : {Γ : TEnv {n}} {A A' B : Ty {n}} {ok : Γ ⊢ A'} {M N : Exp {n}}
+    SigmaAI : {Γ : TEnv {n}} {A A' B : Ty {n}} {M N : Exp {n}}
               → Γ ⊢ M ⇐ A
               → Γ ⇒ A' ≤ A
-              → ⟨ A' , Γ ⟩ {ok} ⊢ N ⇒ B
+              → ⟨ A' , Γ ⟩ ⊢ N ⇒ B
               → Γ ⊢ Prod M N ⇒ Sigma A B
-    PairAI : {Γ : TEnv {n}} {A B : Ty {n}} {ok : Γ ⊢ A} {e N : Exp {n}} {V : Val e}
+    PairAI : {Γ : TEnv {n}} {A B : Ty {n}} {e N : Exp {n}} {V : Val e}
              → Γ ⊢ e ⇒ A
              → Γ ⊢ N ⇒ B
              → Γ ⊢ ProdV V N ⇒ Sigma A B
-    SigmaAE : {Γ : TEnv {n}} {A B C D : Ty {n}} {ok : Γ ⊢ A} {ok' : ⟨ A , Γ ⟩ {ok} ⊢ B} {M N : Exp {n}}
+    SigmaAE : {Γ : TEnv {n}} {A B C D : Ty {n}} {M N : Exp {n}}
             → Γ ⊢ M ⇒ D
             → Γ ⊢ D ⇓ Sigma A B
-            → ⟨ B , ⟨ A , Γ ⟩ {ok = ok} ⟩ {ok = ok'} ⊢ N ⇒ C
+            → ⟨ B , ⟨ A , Γ ⟩ ⟩ ⊢ N ⇒ C
             → (¬ (0 ∈`ᵀ C)) × (¬ (1 ∈`ᵀ C))
             → Γ ⊢ LetP M N ⇒ C
-    Let : {Γ : TEnv {n}} {A B : Ty {n}} {ok : Γ ⊢ A} {M N : Exp {n}}
+    Let : {Γ : TEnv {n}} {A B : Ty {n}} {M N : Exp {n}}
           → ¬(0 ∈`ᵀ B)
           → Γ ⊢ M ⇒ A
-          → ⟨ A , Γ ⟩ {ok} ⊢ N ⇒ B
+          → ⟨ A , Γ ⟩ ⊢ N ⇒ B
           → Γ ⊢ LetE M N ⇒ B
 
   data _⊢_⇓_ {n} where
@@ -289,23 +282,23 @@ module defs where
               → L' ⊆ L
               → Γ ⊢ (f l ins) ⇓ D
               → Γ ⊢ CaseT V f ⇓ D
-    AUCaseX-P : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)}
+    AUCaseX-P : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})}
               → Γ ⇒ D ≤ Label L
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≡ (fᴬ l i))
-              → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⊢ CaseT (VVar{i = length Γ'}) fᴮ ⇓ Pi A (CaseT (VVar{i = length Γ'}) fᴰ)
-    AUCaseX-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)}
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ A ≡ (fᴬ l i))
+              → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseT (VVar{i = length Γ'}) fᴮ ⇓ Pi A (CaseT (VVar{i = length Γ'}) fᴰ)
+    AUCaseX-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})}
               → Γ ⇒ D ≤ Label L
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
-              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≡ (fᴬ l i))
-              → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⊢ CaseT (VVar{i = length Γ'}) fᴮ ⇓ Sigma A (CaseT (VVar{i = length Γ'}) fᴰ)
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
+              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ A ≡ (fᴬ l i))
+              → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseT (VVar{i = length Γ'}) fᴮ ⇓ Sigma A (CaseT (VVar{i = length Γ'}) fᴰ)
 
   data _⇒_≡_ {n} where
     AConvUnit : {Γ : TEnv {n}} → Γ ⇒ UnitT ≡ UnitT
     AConvLabel : {Γ : TEnv {n}} {L : Subset n} → Γ ⇒ Label L ≡ Label L
     AConvSingle : {Γ : TEnv {n}} {A : Ty} {e : Exp {n}} {V : Val e} {j : Γ ⊢ Single V A} → Γ ⇒ Single V A ≡ Single V A
-    AConvPi : {Γ : TEnv {n}} {A A' B B' : Ty} {ok : Γ ⊢ A'} → Γ ⇒ A ≡ A' → ⟨ A' , Γ ⟩ {ok} ⇒ B ≡ B' → Γ ⇒ Pi A B ≡ Pi A' B'
-    AConvSigma : {Γ : TEnv {n}} {A A' B B' : Ty} {ok : Γ ⊢ A} → Γ ⇒ A ≡ A' → ⟨ A , Γ ⟩ {ok} ⇒ B ≡ B' → Γ ⇒ Sigma A B ≡ Sigma A' B'
+    AConvPi : {Γ : TEnv {n}} {A A' B B' : Ty} → Γ ⇒ A ≡ A' → ⟨ A' , Γ ⟩ ⇒ B ≡ B' → Γ ⇒ Pi A B ≡ Pi A' B'
+    AConvSigma : {Γ : TEnv {n}} {A A' B B' : Ty} → Γ ⇒ A ≡ A' → ⟨ A , Γ ⟩ ⇒ B ≡ B' → Γ ⇒ Sigma A B ≡ Sigma A' B'
     AConvCaseLL : {Γ : TEnv {n}} {B : Ty {n}} {e : Exp {n}} {V : Val e} {L L' : Subset n} {f : (∀ l → l ∈ L → Ty)} {l : Fin n} {ins : l ∈ L}
                   → Γ ⊢ e ⇒ Single (VLab{x = l}) (Label L')
                   → L ⊆ L'
@@ -316,81 +309,143 @@ module defs where
                   → L ⊆ L'
                   → Γ ⇒ A ≡ (f l ins)
                   → Γ ⇒ A ≡ CaseT V f               
-    AConvCaseXL : {Γ Γ' : TEnv {n}} {B D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)} {f : ∀ l → l ∈ L → Ty {n}}
+    AConvCaseXL : {Γ Γ' : TEnv {n}} {B D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                → Γ ⇒ D ≤ Label L
-               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ (f l i) ≡ B)
-               → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⇒ CaseT (VVar{i = length Γ'}) f ≡ B
-    ASubCaseXR : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {ok : Γ ⊢ D} {L : Subset n} {ok' : ∀ l → l ∈ L → Γ ⊢ Single (VLab{x = l}) (Label L)} {f : ∀ l → l ∈ L → Ty {n}}
+               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ (f l i) ≡ B)
+               → (Γ' ++ ⟨ D , Γ ⟩) ⇒ CaseT (VVar{i = length Γ'}) f ≡ B
+    AConvCaseXR : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                → Γ ⇒ D ≤ Label L
-               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩ {ok = ok' l i}) ⇒ A ≡ (f l i))
-               → (Γ' ++ ⟨ D , Γ ⟩ {ok = ok}) ⇒ A ≡ CaseT (VVar{i = length Γ'}) f
+               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ A ≡ (f l i))
+               → (Γ' ++ ⟨ D , Γ ⟩) ⇒ A ≡ CaseT (VVar{i = length Γ'}) f
 
-  ++-assoc : {n : ℕ} {Γ Γ' Γ'' : TEnv {n}} → (Γ'' ++ Γ') ++ Γ ≡ Γ'' ++ (Γ' ++ Γ)
+
+  -- environment extension (@ end)
+  ∈++ : {n x : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} → x ∶ A ∈ Γ → x ∶ A ∈ (Γ ++ Γ')
+  ok-++ : {n : ℕ} {Γ Γ' : TEnv {n}} → ⊢ Γ ok → ⊢ Γ' ok → ⊢ (Γ ++ Γ') ok 
+  ⊢-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} → Γ ⊢ A → ⊢ Γ' ok → (Γ ++ Γ') ⊢ A
+  ⊢⇒-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} {M : Exp {n}} → Γ ⊢ M ⇒ A → ⊢ Γ' ok → (Γ ++ Γ') ⊢ M ⇒ A
+  ⊢⇐-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} {M : Exp {n}} → Γ ⊢ M ⇐ A → ⊢ Γ' ok →(Γ ++ Γ') ⊢ M ⇐ A
+  ⇒≤-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⇒ A ≤ B → ⊢ Γ' ok → (Γ ++ Γ') ⇒ A ≤ B
+  ⇓-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A ⇓ B → ⊢ Γ' ok → (Γ ++ Γ') ⊢ A ⇓ B
+  ⇒≡-++ : {n : ℕ} {Γ Γ' : TEnv {n}} {A B : Ty {n}} → Γ ⇒ A ≡ B → ⊢ Γ' ok → (Γ ++ Γ') ⇒ A ≡ B
 
   ∈++ {n} {.0} {.(⟨ A , _ ⟩)} {Γ'} {A} here = here
   ∈++ {n} {.(ℕ.suc _)} {.(⟨ _ , _ ⟩)} {Γ'} {A} (there ins) = there (∈++ ins)
+
+  ok-++ {n} {.[]} {Γ'} empty ok' = ok'
+  ok-++ {n} {.(⟨ _ , _ ⟩)} {Γ'} (entry ok x) ok' = entry (ok-++ ok ok') (⊢-++ x ok')
   
-  ⊢-++ {n} {Γ} {Γ'} {.UnitT} UnitF = UnitF
-  ⊢-++ {n} {Γ} {Γ'} {.(Label _)} LabF = LabF
-  ⊢-++ {n} {Γ} {Γ'} {.(Pi _ _)} (PiF j j₁) = PiF (⊢-++ j) (⊢-++ j₁)
-  ⊢-++ {n} {Γ} {Γ'} {.(Sigma _ _)} (SigmaF j j₁) = SigmaF (⊢-++ j) (⊢-++ j₁)
-  ⊢-++ {n} {Γ} {Γ'} {.(Single _ _)} (SingleF x x₁) = SingleF (⊢⇐-++ x) x₁
-  ⊢-++ {n} {Γ} {Γ'} {.(CaseT _ _)} (CaseF{f-ok = f-ok} x) = CaseF{f-ok = λ l i → ⊢-++ (f-ok l i)} (⊢⇐-++ x)
+  ⊢-++ {n} {Γ} {Γ'} {.UnitT} (UnitF x) ok = UnitF (ok-++ x ok)
+  ⊢-++ {n} {Γ} {Γ'} {.(Label _)} (LabF x) ok = LabF (ok-++ x ok)
+  ⊢-++ {n} {Γ} {Γ'} {.(Pi _ _)} (PiF j j₁) ok = PiF (⊢-++ j ok) (⊢-++ j₁ ok)
+  ⊢-++ {n} {Γ} {Γ'} {.(Sigma _ _)} (SigmaF j j₁) ok = SigmaF (⊢-++ j ok) (⊢-++ j₁ ok)
+  ⊢-++ {n} {Γ} {Γ'} {.(Single _ _)} (SingleF x x₁ x₂) ok = SingleF (ok-++ x ok) (⊢⇐-++ x₁ ok) x₂
+  ⊢-++ {n} {Γ} {Γ'} {.(CaseT _ _)} (CaseF{f-ok = f-ok} x) ok = CaseF{f-ok = λ l i → ⊢-++ (f-ok l i) ok} (⊢⇐-++ x ok)
 
-  ⊢-refl : {n : ℕ} {Γ : TEnv {n}} {A : Ty {n}} → (ok : Γ ⊢ A) → (ok' : Γ ⊢ A) → ok ≡ ok'
+  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(Var _)} (VarA x x₁) ok = VarA (ok-++ x ok) (∈++ x₁)
+  ⊢⇒-++ {n} {Γ} {Γ'} {.UnitT} {.UnitE} (UnitAI x) ok = UnitAI (ok-++ x ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {.(Single VLab (Label ⁅ _ ⁆))} {.(LabI _)} (LabAI x) ok = LabAI (ok-++ x ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(CaseE _ _)} (LabAEl j x j₁) ok = LabAEl (⊢⇒-++ j ok) x (⊢⇒-++ j₁ ok)
+  ⊢⇒-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(CaseE VVar _)} (LabAEx{Γ = Γ}{Γ''}{D}{L}{f}{f-t} x x₁) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = LabAEx (⇒≤-++ x ok) (rw (λ l i → ⊢⇒-++ (x₁ l i) ok))
+    -- rewrite within function
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⊢ f l i ⇒ f-t l i)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⊢ f l i ⇒ f-t l i)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+  ⊢⇒-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Abs _)} (PiAI j) ok = PiAI (⊢⇒-++ j ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {.([ 0 ↦ _ ]ᵀ _)} {.(App _ _)} (PiAE j x x₁ x₂) ok = PiAE (⊢⇒-++ j ok) (⇓-++ x ok) (⊢⇐-++ x₁ ok) (⊢-++ x₂ ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Prod _ _)} (SigmaAI x x₁ j) ok = SigmaAI (⊢⇐-++ x ok) (⇒≤-++ x₁ ok) (⊢⇒-++ j ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(ProdV _ _)} (PairAI j j₁) ok = PairAI (⊢⇒-++ j ok) (⊢⇒-++ j₁ ok)
+  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(LetP _ _)} (SigmaAE j x j₁ x₁) ok = SigmaAE (⊢⇒-++ j ok) (⇓-++ x ok) (⊢⇒-++ j₁ ok) x₁
+  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(LetE _ _)} (Let x j j₁) ok = Let x (⊢⇒-++ j ok) (⊢⇒-++ j₁ ok)
 
-  -- ⟨ A , Γ ++ Γ' ⟩ ≡ ⟨ A , Γ ⟩ ++ Γ'
-  ++, : {n : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} {ok : Γ ⊢ A} → (⟨ A , Γ ++ Γ' ⟩) ≡ (⟨ A , Γ ⟩ {ok} ++ Γ')
-  ++, {n} {Γ} {Γ'} {A} {ok} = refl
-  
-  -- Γ'' ++ ⟨ A , Γ ++ Γ' ⟩ ≡ (Γ'' ++ ⟨ A , Γ ⟩) ++ Γ'
-  ++,' : {n : ℕ} {Γ Γ' Γ'' : TEnv {n}} {A : Ty {n}} {ok : Γ ⊢ A} {ok' : (Γ ++ Γ') ⊢ A} → Γ'' ++ ⟨ A , Γ ++ Γ' ⟩ {ok'} ≡ Γ'' ++ (⟨ A , Γ ⟩ {ok} ++ Γ')
-  ++,' {n} {Γ} {Γ'} {Γ''} {A} {ok} {ok'} rewrite (⊢-refl ok' (⊢-++ {n} {Γ} {Γ'} {A} ok)) = cong (_++_ Γ'') (++,)
+  ⊢⇐-++ {n} {Γ} {Γ'} {A} {M} (SubTypeA x x₁) ok = SubTypeA (⊢⇒-++ x ok) (⇒≤-++ x₁ ok)
 
-  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(Var _)} (VarA x) = VarA (∈++ x)
-  ⊢⇒-++ {n} {Γ} {Γ'} {.UnitT} {.UnitE} UnitAI = UnitAI
-  ⊢⇒-++ {n} {Γ} {Γ'} {.(Single VLab (Label ⁅ _ ⁆))} {.(LabI _)} LabAI = LabAI
-  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(CaseE _ _)} (LabAEl j x j₁) = LabAEl (⊢⇒-++ j) x (⊢⇒-++ j₁)
-  ⊢⇒-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(CaseE VVar _)} (LabAEx{Γ = Γ}{Γ' = Γ''}{D = D}{ok = ok} x x₁)
-    rewrite (++-assoc {n} {{!!}} {{!!}} {{!!}}) = {!!} -- LabAEx (⇒≤-++ x) {!!}
-  ⊢⇒-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Abs _)} (PiAI j) = PiAI (⊢⇒-++ j)
-  ⊢⇒-++ {n} {Γ} {Γ'} {.([ 0 ↦ _ ]ᵀ _)} {.(App _ _)} (PiAE j x x₁ x₂) = PiAE (⊢⇒-++ j) (⇓-++ x) (⊢⇐-++ x₁) (⊢-++ x₂)
-  ⊢⇒-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Prod _ _)} (SigmaAI x x₁ j) = SigmaAI (⊢⇐-++ x) (⇒≤-++ x₁) (⊢⇒-++ j)
-  ⊢⇒-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(ProdV _ _)} (PairAI{ok = ok} j j₁) = PairAI{ok = ⊢-++ ok} (⊢⇒-++ j) (⊢⇒-++ j₁)
-  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(LetP _ _)} (SigmaAE j x j₁ x₁) = SigmaAE (⊢⇒-++ j) (⇓-++ x) (⊢⇒-++ j₁) x₁
-  ⊢⇒-++ {n} {Γ} {Γ'} {A} {.(LetE _ _)} (Let x j j₁) = Let x (⊢⇒-++ j) (⊢⇒-++ j₁)
+  ⇒≤-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} ASubUnit ok = ASubUnit
+  ⇒≤-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} (ASubLabel x) ok = ASubLabel x
+  ⇒≤-++ {n} {Γ} {Γ'} {.(Single _ _)} {B} (ASubSingle j) ok = ASubSingle (⇒≤-++ j ok)
+  ⇒≤-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} (ASubPi j j₁) ok = ASubPi (⇒≤-++ j ok) (⇒≤-++ j₁ ok)
+  ⇒≤-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} (ASubSigma j j₁) ok = ASubSigma (⇒≤-++ j ok) (⇒≤-++ j₁ ok)
+  ⇒≤-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (ASubCaseLL x x₁ j) ok = ASubCaseLL (⊢⇒-++ x ok) x₁ (⇒≤-++ j ok)
+  ⇒≤-++ {n} {Γ} {Γ'} {A} {.(CaseT _ _)} (ASubCaseLR x x₁ j) ok = ASubCaseLR (⊢⇒-++ x ok) x₁ (⇒≤-++ j ok)
+  ⇒≤-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {B} (ASubCaseXL{Γ = Γ}{Γ''}{.B}{D}{L}{f} j x) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = ASubCaseXL (⇒≤-++ j ok) (rw (λ l i → ⇒≤-++ (x l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ f l i ≤ B)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ f l i ≤ B)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+  ⇒≤-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {A} {.(CaseT VVar _)} (ASubCaseXR{Γ = Γ}{Γ''}{.A}{D}{L}{f} j x) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = ASubCaseXR (⇒≤-++ j ok) (rw (λ l i → ⇒≤-++ (x l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ A ≤ f l i)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ A ≤ f l i)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
 
-  ⊢⇐-++ {n} {Γ} {Γ'} {A} {e} (SubTypeA x x₁) = SubTypeA (⊢⇒-++ x) (⇒≤-++ x₁)
+  ⇓-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} AURefl-U ok = AURefl-U
+  ⇓-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} AURefl-L ok = AURefl-L
+  ⇓-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} AURefl-P ok = AURefl-P
+  ⇓-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} AURefl-S ok = AURefl-S
+  ⇓-++ {n} {Γ} {Γ'} {.(Single _ _)} {B} (AUSingle j) ok = AUSingle (⇓-++ j ok)
+  ⇓-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (AUCaseL x x₁ j) ok = AUCaseL (⊢⇒-++ x ok) x₁ (⇓-++ j ok)
+  ⇓-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(Pi _ (CaseT VVar _))} (AUCaseX-P{Γ = Γ}{Γ''}{A}{D}{L}{fᴬ}{fᴮ}{fᴰ} x x₁ x₂) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = AUCaseX-P (⇒≤-++ x ok) (rw (λ l i → ⇓-++ (x₁ l i) ok)) (rw' (λ l i → ⇒≡-++ (x₂ l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⊢ fᴮ l i ⇓ Pi (fᴬ l i) (fᴰ l i))
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⊢ fᴮ l i ⇓ Pi (fᴬ l i) (fᴰ l i))
+          rw' : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ A ≡ fᴬ l i)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ A ≡ fᴬ l i)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+          rw' g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+  ⇓-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(Sigma _ (CaseT VVar _))} (AUCaseX-S{Γ = Γ}{Γ''}{A}{D}{L}{fᴬ}{fᴮ}{fᴰ} x x₁ x₂) ok
+   rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = AUCaseX-S (⇒≤-++ x ok) (rw (λ l i → ⇓-++ (x₁ l i) ok)) (rw' (λ l i → ⇒≡-++ (x₂ l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⊢ fᴮ l i ⇓ Sigma (fᴬ l i) (fᴰ l i))
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⊢ fᴮ l i ⇓ Sigma (fᴬ l i) (fᴰ l i))
+          rw' : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ A ≡ fᴬ l i)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ A ≡ fᴬ l i)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+          rw' g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
 
-  ⇒≤-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} ASubUnit = ASubUnit
-  ⇒≤-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} (ASubLabel x) = ASubLabel x
-  ⇒≤-++ {n} {Γ} {Γ'} {.(Single _ _)} {B} (ASubSingle j) = ASubSingle (⇒≤-++ j)
-  ⇒≤-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} (ASubPi j j₁) = ASubPi (⇒≤-++ j) (⇒≤-++ j₁)
-  ⇒≤-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} (ASubSigma j j₁) = ASubSigma (⇒≤-++ j) (⇒≤-++ j₁)
-  ⇒≤-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (ASubCaseLL x x₁ j) = ASubCaseLL (⊢⇒-++ x) x₁ (⇒≤-++ j)
-  ⇒≤-++ {n} {Γ} {Γ'} {A} {.(CaseT _ _)} (ASubCaseLR x x₁ j) = ASubCaseLR (⊢⇒-++ x) x₁ (⇒≤-++ j)
-  ⇒≤-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {B} (ASubCaseXL j x) = {!!}
-  ⇒≤-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {A} {.(CaseT VVar _)} (ASubCaseXR j x) = {!!}
-
-  ⇓-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} AURefl-U = AURefl-U
-  ⇓-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} AURefl-L = AURefl-L
-  ⇓-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} AURefl-P = AURefl-P
-  ⇓-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} AURefl-S = AURefl-S
-  ⇓-++ {n} {Γ} {Γ'} {.(Single _ _)} {B} (AUSingle j) = AUSingle (⇓-++ j)
-  ⇓-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (AUCaseL x x₁ j) = AUCaseL (⊢⇒-++ x) x₁ (⇓-++ j)
-  ⇓-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(Pi _ (CaseT VVar _))} (AUCaseX-P x x₁ x₂) = {!!}
-  ⇓-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {.(Sigma _ (CaseT VVar _))} (AUCaseX-S x x₁ x₂) = {!!}
-
-  ⇒≡-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} AConvUnit = AConvUnit
-  ⇒≡-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} AConvLabel = AConvLabel
-  ⇒≡-++ {n} {Γ} {Γ'} {.(Single _ _)} {.(Single _ _)} AConvSingle = AConvSingle
-  ⇒≡-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} (AConvPi j j₁) = AConvPi (⇒≡-++ j) (⇒≡-++ j₁)
-  ⇒≡-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} (AConvSigma j j₁) = AConvSigma (⇒≡-++ j) (⇒≡-++ j₁)
-  ⇒≡-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (AConvCaseLL x x₁ j) = AConvCaseLL (⊢⇒-++ x) x₁ (⇒≡-++ j) 
-  ⇒≡-++ {n} {Γ} {Γ'} {A} {.(CaseT _ _)} (AConvCaseLR x x₁ j) = AConvCaseLR (⊢⇒-++ x) x₁ (⇒≡-++ j) 
-  ⇒≡-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {B} (AConvCaseXL x x₁) = {!!}
-  ⇒≡-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {A} {.(CaseT VVar _)} (ASubCaseXR x x₁) = {!!}
-
+  ⇒≡-++ {n} {Γ} {Γ'} {.UnitT} {.UnitT} AConvUnit ok = AConvUnit
+  ⇒≡-++ {n} {Γ} {Γ'} {.(Label _)} {.(Label _)} AConvLabel ok = AConvLabel
+  ⇒≡-++ {n} {Γ} {Γ'} {.(Single _ _)} {.(Single _ _)} (AConvSingle{j = j}) ok = AConvSingle{j = ⊢-++ j ok}
+  ⇒≡-++ {n} {Γ} {Γ'} {.(Pi _ _)} {.(Pi _ _)} (AConvPi j j₁) ok = AConvPi (⇒≡-++ j ok) (⇒≡-++ j₁ ok)
+  ⇒≡-++ {n} {Γ} {Γ'} {.(Sigma _ _)} {.(Sigma _ _)} (AConvSigma j j₁) ok = AConvSigma (⇒≡-++ j ok) (⇒≡-++ j₁ ok)
+  ⇒≡-++ {n} {Γ} {Γ'} {.(CaseT _ _)} {B} (AConvCaseLL x x₁ j) ok = AConvCaseLL (⊢⇒-++ x ok) x₁ (⇒≡-++ j ok)
+  ⇒≡-++ {n} {Γ} {Γ'} {A} {.(CaseT _ _)} (AConvCaseLR x x₁ j) ok = AConvCaseLR (⊢⇒-++ x ok) x₁ (⇒≡-++ j ok)
+  ⇒≡-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {.(CaseT VVar _)} {B} (AConvCaseXL{Γ = Γ}{Γ''}{.B}{D}{L}{f} x x₁) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = AConvCaseXL (⇒≤-++ x ok) (rw (λ l i → ⇒≡-++ (x₁ l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ f l i ≡ B)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ f l i ≡ B)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
+  ⇒≡-++ {n} {.(_ ++ ⟨ _ , _ ⟩)} {Γ'} {A} {.(CaseT VVar _)} (AConvCaseXR{Γ = Γ}{Γ''}{.A}{D}{L}{f} x x₁) ok
+    rewrite sym (++-assoc{n}{Γ''}{⟨ D , Γ ⟩}{Γ'}) = AConvCaseXR (⇒≤-++ x ok) (rw (λ l i → ⇒≡-++ (x₁ l i) ok))
+    where rw : ((l : Fin n) (i : l ∈ L) → ((Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ++ Γ' ) ⇒ A ≡ f l i)
+             → ((l : Fin n) (i : l ∈ L) → (Γ'' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ++ Γ' ⟩) ⇒ A ≡ f l i)
+          rw g l i
+            with g l i
+          ...  | w
+               rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
 {-
 module examples where
   open defs
