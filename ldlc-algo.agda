@@ -65,7 +65,10 @@ module defs where
 
   -- Useful shorthands
   data notSingle {n : ℕ} : Ty {n} → Set where
-    notsingle : {A : Ty {n}} {e : Exp {n}} → (∀ W B → ¬ (A ≡ Single{e = e} W B)) → notSingle A
+    notsingle : {A : Ty {n}} → (∀ e B → (W : Val e) → ¬ (A ≡ Single{e = e} W B)) → notSingle A
+
+  notsingle-label : {n : ℕ} {L : Subset n} → notSingle (Label L)
+  notsingle-label {n} {L} = notsingle λ e B W ()
 
   ---- Substitution and Shifting
   -- shifting and substitution
@@ -138,10 +141,22 @@ module defs where
   [_↦_]ᵀ_ {n} {e} k v (CaseT x f) = CaseT (sub-val{n}{k}{e' = e}{v = v} x) λ l x₁ → [ k ↦ v ]ᵀ (f l x₁)
 
   -- variable in expression
-  data _∈`_ {N : ℕ} : ℕ → Exp {N} → Set
-    
+  data _∈`_ {n : ℕ} : ℕ → Exp {n} → Set where
+    in-var : {x : ℕ} → x ∈` (Var x)
+    in-abs : {x : ℕ} {e : Exp {n}} → x ∈` e → (ℕ.suc x) ∈` (Abs e)
+    in-app : {x : ℕ} {e e' : Exp {n}} {v : Val e'} → x ∈` e ⊎ x ∈` e' → x ∈` App e v
+    in-casee : {x : ℕ} {s : Subset n} {f : (∀ l → l ∈ s → Exp {n})} {e : Exp {n}} {v : Val e} → (∃₂ λ l i → x ∈` (f l i)) ⊎ x ∈` e → x ∈` CaseE v f
+    in-prod : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc x) ∈` e' → x ∈` Prod e e'
+    in-prodv : {x : ℕ} {e e' : Exp {n}} {v : Val e} → x ∈` e ⊎ x ∈` e' → x ∈` ProdV v e'  -- (Pair-A-I => e' has 0 substituted away => just x, not suc x)
+    in-letp : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc (ℕ.suc x)) ∈` e' → x ∈` LetP e e'
+    in-lete : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc x) ∈` e' → x ∈` LetE e e'
+
   -- variable in type
-  data _∈`ᵀ_ {N : ℕ} : ℕ → Ty {N} → Set
+  data _∈`ᵀ_ {n : ℕ} : ℕ → Ty {n} → Set where
+    in-single : {x : ℕ} {e : Exp {n}} {v : Val e} {A : Ty {n}} → x ∈` e ⊎ x ∈`ᵀ A → x ∈`ᵀ Single v A
+    in-pi : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ n ∈`ᵀ B → n ∈`ᵀ Pi A B
+    in-pigma : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ n ∈`ᵀ B → n ∈`ᵀ Sigma A B
+    in-case : {x : ℕ} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} {e : Exp {n}} {v : Val e} → (∃₂ λ l i → x ∈`ᵀ (f l i)) ⊎ x ∈` e → x ∈`ᵀ CaseT v f  
 
   -- Type environment
   data TEnv {n : ℕ} : Set where
@@ -446,7 +461,7 @@ module defs where
             with g l i
           ...  | w
                rewrite sym (++-assoc{n}{Γ''}{⟨ Single (VLab{x = l}) (Label L) , Γ ⟩}{Γ'}) = w
-{-
+
 module examples where
   open defs
 
@@ -464,15 +479,15 @@ module examples where
 
   f₂ : (l : Fin 3) → l ∈ [l1,l2] → Ty {n = 3}
   f₂ zero here = UnitT
-  f₂ (Fin.suc zero) (there here) = Single (LabI (Fin.suc (Fin.suc zero))) (Label [l3])
+  f₂ (Fin.suc zero) (there here) = Single (VLab{x = (Fin.suc (Fin.suc zero))}) (Label [l3])
   f₂ (Fin.suc (Fin.suc .(Fin.suc _))) (there (there (there ())))
 
-  _ : ⟨ Label [l1,l2] , [] ⟩ {ok = LabF} ⊢ CaseE{s = [l1,l2]} (Var 0) f₁ ⇒ CaseT{s = [l1,l2]} (Var 0) f₂
+  _ : ⟨ Label [l1,l2] , [] ⟩ ⊢ CaseE{s = [l1,l2]} (VVar{i = 0}) f₁ ⇒ CaseT{s = [l1,l2]} (VVar{i = 0}) f₂
   _ = LabAEx (ASubLabel (λ x → x)) g
     where g : (l : Fin 3) → (i : l ∈ [l1,l2])
-              → ⟨ Single (LabI l) (Label [l1,l2]) , [] ⟩ {ok = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (l∈L⇒[l]⊆L i)))) (notsingle (λ W B → λ ()))} ⊢ f₁ l i ⇒ f₂ l i
-          g zero here = UnitAI
-          g (Fin.suc zero) (there here) = LabAI
+              → ⟨ Single (VLab{x = l}) (Label [l1,l2]) , [] ⟩ ⊢ f₁ l i ⇒ f₂ l i
+          g zero here = UnitAI (entry empty (SingleF empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L here)))) notsingle-label))
+          g (Fin.suc zero) (there here) = LabAI (entry empty (SingleF empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L (there here))))) notsingle-label))
           g (Fin.suc (Fin.suc zero)) (there (there ()))
 
   ----------------------------------------------------------------------
@@ -481,27 +496,11 @@ module examples where
   [l1] : Subset 1
   [l1] = inside ∷ []
 
-  premise : (⟨ Label [l1] , [] ⟩ {ok = LabF}) ⊢ CaseE (Var 0) (λ l x → UnitE) ⇒ CaseT (Var 0) (λ l x → UnitT)
-  premise = (LabAEx{ok' = ok'} (ASubLabel (λ x → x)) (λ l i → UnitAI))
-     where ok' : (l : Fin 1) → l ∈ [l1] → [] ⊢ Single (LabI l) (Label [l1])
-           ok' zero here = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (λ x → x)))) (notsingle (λ W B → λ ()))
-          
-  J : [] ⊢ Prod (LabI zero) (CaseE{s = [l1]} (Var 0) (λ l x → UnitE)) ⇒ Sigma (Label [l1]) (CaseT{s = [l1]} (Var 0) (λ l x → UnitT))
-  J = SigmaAI {ok = LabF}
-        (SubTypeA LabAI (ASubSingle {val = VLab} (ASubLabel (λ x → x)))) (ASubLabel (λ x → x)) premise
-
-  -- The expression reduces as follows:
-  --
-  --   ⟨ x : {l₁} = l₁ , case x of {l₁ : ()} ⟩
-  -- → ⟨⟨ l₁ , () ⟩⟩
-  --
-  -- Only typing rule applicable to ⟨⟨ l₁ , () ⟩⟩ is Pair-A-I
-  -- {l₁} becomes S{l₁ : {l₁}}, since Pair-A-I requires type inference (⇒), not checking (⇐)
-  premise' : [] ⊢ UnitE {1} ⇒ UnitT
-  premise' = UnitAI
-  
-  J' : [] ⊢ ProdV (LabI zero) UnitE ⇒ Sigma (Single (LabI zero) (Label [l1])) UnitT
-  J' = PairAI{ok = SingleF{val = VLab} (SubTypeA LabAI (ASubSingle{val = VLab} (ASubLabel (λ x → x)))) (notsingle (λ W B → λ ()))}{val = VLab} LabAI premise'
--}
-
- 
+  premise : ⟨ Label [l1] , [] ⟩ ⊢ CaseE (VVar{i = 0}) (λ l x → UnitE) ⇒ CaseT (VVar{i = 0}) (λ l x → UnitT)
+  premise = (LabAEx (ASubLabel (λ x → x)) (λ l i → (UnitAI (entry empty (SingleF empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L i)))) (notsingle (λ e B W ())))))))
+     where ok' : (l : Fin 1) → l ∈ [l1] → [] ⊢ Single (VLab{x = l}) (Label [l1])
+           ok' zero here = SingleF empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)))) (notsingle (λ e B W → λ ()))
+         
+  _ : [] ⊢ Prod (LabI zero) (CaseE{s = [l1]} (VVar{i = 0}) (λ l x → UnitE)) ⇒ Sigma (Label [l1]) (CaseT{s = [l1]} (VVar{i = 0}) (λ l x → UnitT))
+  _ = SigmaAI
+        (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)))) (ASubLabel (λ x → x)) premise
