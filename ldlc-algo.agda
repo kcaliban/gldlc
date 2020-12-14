@@ -102,6 +102,9 @@ module defs where
   ↑¹[_] : ∀ {n} → Exp {n} → Exp
   ↑¹[ e ] = ↑ (ℤ.pos 1) , 0 [ e ]
 
+  ↑ⱽ¹[_] : ∀ {n} {e : Exp {n}} → Val e → Val (↑ (ℤ.pos 1) , 0 [ e ])
+  ↑ⱽ¹[_] {n} {e} v = shift-val v
+
   ↑⁻¹[_] : ∀ {n} → Exp {n} → Exp
   ↑⁻¹[ e ] = ↑ (ℤ.negsuc 0) , 0 [ e ]
 
@@ -254,10 +257,12 @@ module defs where
              → L' ⊆ L
              → Γ ⊢ (f l ins) ⇒ B
              → Γ ⊢ CaseE V f ⇒ B
-    LabAEx : {Γ Γ' : TEnv {n}} {D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Exp {n}} {f-t : ∀ l → l ∈ L → Ty {n}}
+    -- unification has problems with arbitrary functions, hence θ
+    -- see https://lists.chalmers.se/pipermail/agda/2020/012294.html
+    LabAEx : {Γ Γ' Θ : TEnv {n}} {D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Exp {n}} {f-t : ∀ l → l ∈ L → Ty {n}} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
              → Γ ⇒ D ≤ Label L
              → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ (Single (VLab{x = l}) (Label L)) , Γ ⟩) ⊢ (f l i) ⇒ (f-t l i))
-             → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseE (VVar{i = length Γ'}) f ⇒ CaseT (VVar{i = length Γ'}) f-t
+             → Θ ⊢ CaseE (VVar{i = length Γ'}) f ⇒ CaseT (VVar{i = length Γ'}) f-t
     PiAI : {Γ : TEnv {n}} {A B : Ty {n}}  {M : Exp {n}} → ⟨ A , Γ ⟩ ⊢ M ⇒ B → Γ ⊢ Abs M ⇒ Pi A B
     PiAE : {Γ : TEnv {n}} {A B D : Ty {n}} {M e : Exp {n}} {V : Val e}
            → Γ ⊢ M ⇒ D
@@ -333,7 +338,7 @@ module defs where
                → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label L) , Γ ⟩) ⇒ A ≡ (f l i))
                → (Γ' ++ ⟨ D , Γ ⟩) ⇒ A ≡ CaseT (VVar{i = length Γ'}) f
 
-
+{-
   -- environment extension (@ end)
   ∈++ : {n x : ℕ} {Γ Γ' : TEnv {n}} {A : Ty {n}} → x ∶ A ∈ Γ → x ∶ A ∈ (Γ ++ Γ')
   ok-++ : {n : ℕ} {Γ Γ' : TEnv {n}} → ⊢ Γ ok → ⊢ Γ' ok → ⊢ (Γ ++ Γ') ok 
@@ -504,3 +509,93 @@ module examples where
   _ : [] ⊢ Prod (LabI zero) (CaseE{s = [l1]} (VVar{i = 0}) (λ l x → UnitE)) ⇒ Sigma (Label [l1]) (CaseT{s = [l1]} (VVar{i = 0}) (λ l x → UnitT))
   _ = SigmaAI
         (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)))) (ASubLabel (λ x → x)) premise
+-}
+
+module semantics where
+  open defs
+
+  data _↠_ {n : ℕ} : Exp {n} → Exp {n} → Set where
+    ξ-App : {e₁ e₁' e : Exp {n}} {v : Val e} → e₁ ↠ e₁' → App e₁ v ↠ App e₁' v
+    ξ-LetE : {e₁ e₁' e : Exp {n}} → e₁ ↠ e₁' → LetE e₁ e ↠ LetE e₁' e
+    ξ-Prod : {e₁ e₁' e : Exp {n}} → e₁ ↠ e₁' → Prod e₁ e ↠ Prod e₁' e
+    ξ-ProdV : {e e₂ e₂' : Exp {n}} {v : Val e} → e₂ ↠ e₂' → ProdV v e₂ ↠ ProdV v e₂'
+    ξ-LetP : {e₁ e₁' e₂ : Exp {n}} → e₁ ↠ e₁' → LetP e₁ e₂ ↠ LetP e₁' e₂
+    β-App : {e e' : Exp {n}} → (v : Val e') → (App (Abs e) v) ↠ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e) ])
+    β-Prod : {e e' : Exp {n}} {v : Val e} → Prod e e' ↠ ProdV v (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
+    β-LetE : {e e' : Exp {n}} → (v : Val e) → LetE e e' ↠ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
+    β-LetP : {e e' e'' : Exp {n}} → (v : Val e) → (v' : Val e')
+                              → LetP (ProdV v e') e''
+                                ↠
+                                ↑ (ℤ.negsuc 1) , 0 [ ([ 0 ↦ ↑ⱽ¹[ v ] ]
+                                                       ([ 0 ↦ shift-val {n} {ℤ.pos 1} {1} v' ] e'')) ]
+    β-LabE : {s : Subset n} {f : ∀ l → l ∈ s → Exp {n}} {x : Fin n} → (ins : x ∈ s)
+             → CaseE (VLab{x = x}) f ↠ f x ins
+
+module progress where
+  open defs
+  open semantics
+
+  -- We can't prove that ([] ≢ Γ' ++ ⟨ D , Γ ⟩) because we are applying an arbitrary function
+  -- Workaround: Argue with length of environments
+  env-len-++ : {n : ℕ} {Γ Γ' : TEnv {n}} → length (Γ ++ Γ') ≡ length Γ +ᴺ length Γ'
+  env-len-++ {n} {[]} {Γ'} = refl
+  env-len-++ {n} {⟨ T , Γ ⟩} {Γ'} = cong ℕ.suc (env-len-++ {n} {Γ} {Γ'})
+  
+  env-len-> : {n : ℕ} {Γ : TEnv {n}} {T : Ty {n}} → length ⟨ T , Γ ⟩ >ᴺ 0
+  env-len-> {n} {Γ} {T} = s≤s z≤n
+
+  env-len->-++ : {n : ℕ} {Γ Γ' : TEnv {n}} → length Γ' >ᴺ 0 → length (Γ ++ Γ') >ᴺ 0
+  env-len->-++ {n} {Γ} {⟨ T , Γ' ⟩} gt rewrite (env-len-++ {n} {Γ} {⟨ T , Γ' ⟩})= {!!}
+
+  env-len-eq : {n : ℕ} {Γ : TEnv {n}} {Γ' : TEnv {n}} → Γ ≡ Γ' → length Γ ≡ length Γ'
+  env-len-eq {n} {Γ} {.Γ} refl = refl
+  
+  env-empty-++ : {n : ℕ} {Γ' Γ : TEnv {n}} {D : Ty {n}} → ¬ ([] ≡ Γ' ++ ⟨ D , Γ ⟩)
+  env-empty-++ {n} {Γ} {Γ'} {D} eq = contradiction (env-len-eq eq) (<⇒≢ (env-len->-++ (env-len->{T = D})))
+
+  -- Canonical forms
+  canonical-forms-pi : {n : ℕ} {e : Exp {n}} {A B D : Ty {n}} → [] ⊢ e ⇒ D → [] ⊢ D ⇓ Pi A B → Val e → (∃[ e' ](e ≡ Abs e'))
+
+  canonical-forms-sigma : {n : ℕ} {e : Exp {n}} {A B D : Ty {n}} → [] ⊢ e ⇒ D → [] ⊢ D ⇓ Sigma A B → Val e → {!!} -- (∃[ e' ](∃[ e'' ](e ≡ ProdV e' e''))
+
+  -- Main theorem
+  data Progress {n : ℕ} (e : Exp {n}) {T : Ty} {j : [] ⊢ e ⇒ T} : Set where
+    step : {e' : Exp{n}} → e ↠ e' → Progress e
+    value : Val e → Progress e
+
+  progress : {n : ℕ} {e : Exp {n}} {T : Ty} → (j : [] ⊢ e ⇒ T) → Progress e {T} {j}
+  progress {n} {Var x} {T} (VarA x₁ x₂) = value VVar
+  progress {n} {UnitE} {.UnitT} (UnitAI x) = value VUnit
+  progress {n} {Abs e} {.(Pi _ _)} (PiAI j) = value VFun
+  progress {n} {App e x} {.([ 0 ↦ x ]ᵀ _)} (PiAE{A = A}{B = B}{D = D} j x₁ x₂ x₃)
+    with progress {n} {e} {D} j
+  ...  | step x₄ = step (ξ-App x₄)
+  ...  | value x₄
+       with canonical-forms-pi {n} {e} {A} {B} {D} j x₁ x₄
+  ...     | fst , snd rewrite snd = step (β-App x)
+  progress {n} {LabI x} {.(Single VLab (Label ⁅ x ⁆))} (LabAI x₁) = value VLab
+  progress {n} {Prod e e₁} {.(Sigma A B)} (SigmaAI {A = A} {B = B} (SubTypeA{A = A₁} x x₂) x₁ j)
+    with progress {n} {e} {A₁} x
+  ...  | step x₃ = step (ξ-Prod x₃)
+  ...  | value x₃ = step (β-Prod{v = x₃})
+  progress {n} {ProdV x e} {.(Sigma _ _)} (PairAI{A = A} {B = B} j j₁)
+    with progress {n} {e} {B} j₁
+  ...  | step x₁ = step (ξ-ProdV x₁)
+  ...  | value x₁ = value (VProd x x₁)
+  progress {n} {LetP e e₁} {T} (SigmaAE{A = A}{B = B}{D = D} j x j₁ x₁)
+    with progress {n} {e} {D} j
+  ...  | step x₂ = step (ξ-LetP x₂)
+  ...  | value x₂ = {!!} -- canonical forms sigma
+  progress {n} {LetE e e₁} {T} (Let{A = A} x j j₁)
+    with progress {n} {e} {A} j
+  ...  | step x₁ = step (ξ-LetE x₁)
+  ...  | value x₁ = step (β-LetE x₁)
+  progress {n} {CaseE {e = .(Var _)} VVar f} {T} (LabAEl {l = l} {ins = ins} (VarA x₁ ()) x j₁)
+  progress {n} {CaseE {e = .(LabI _)} VLab f} {T} (LabAEl {l = _} {ins = ins} (LabAI x₁) x j₁) = step (β-LabE ins)
+  progress {n} {CaseE .VVar f} {.(CaseT VVar _)} (LabAEx{eq = eq} x x₁) = contradiction eq env-empty-++
+
+module preservation where
+  open defs
+  open semantics
+
+  preservation : {n : ℕ} {e e' : Exp {n}} {T : Ty {n}} → [] ⊢ e ⇒ T → e ↠ e' → [] ⊢ e' ⇐ T
