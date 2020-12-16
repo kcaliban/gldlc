@@ -18,7 +18,7 @@ open import aux
 
 ----------------------------------------------------------------------
 
-module sorts where
+module syntx where
   data Exp {n : ℕ} : Set
   data Val {n : ℕ} : Exp {n} → Set
   data Ty {n : ℕ} : Set
@@ -80,7 +80,7 @@ module sorts where
 
 module substitution where
   ---- Substitution and Shifting
-  open sorts
+  open syntx
 
   ↑ᴺ_,_[_] : ℤ → ℕ → ℕ → ℕ
   ↑ᴺ d , c [ x ]
@@ -157,7 +157,7 @@ module substitution where
 ----------------------------------------------------------------------
 
 module typing where
-  open sorts
+  open syntx
   open substitution
 
   -- Type environment
@@ -341,7 +341,7 @@ module typing where
 ----------------------------------------------------------------------
 
 module semantics where
-  open sorts
+  open syntx
   open substitution
 
   data _↠_ {n : ℕ} : Exp {n} → Exp {n} → Set where
@@ -365,7 +365,7 @@ module semantics where
 ----------------------------------------------------------------------
 
 module progress where
-  open sorts
+  open syntx
   open substitution
   open typing
   open semantics
