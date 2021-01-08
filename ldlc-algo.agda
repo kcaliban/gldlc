@@ -319,12 +319,12 @@ module typing where
     AConvSigma : {Γ : TEnv {n}} {A A' B B' : Ty} → Γ ⇒ A ≡ A' → ⟨ A , Γ ⟩ ⇒ B ≡ B' → Γ ⇒ Sigma A B ≡ Sigma A' B'
     AConvCaseLL : {Γ : TEnv {n}} {B : Ty {n}} {e : Exp {n}} {V : Val e} {L L' : Subset n} {f : (∀ l → l ∈ L → Ty)} {l : Fin n} {ins : l ∈ L}
                   → Γ ⊢ e ⇒ Single (VLab{x = l}) (Label L')
-                  → L ⊆ L'
+                  → L' ⊆ L
                   → Γ ⇒ (f l ins) ≡ B
                   → Γ ⇒ CaseT V f ≡ B
     AConvCaseLR : {Γ : TEnv {n}} {A : Ty {n}} {e : Exp {n}} {V : Val e} {L L' : Subset n} {f : (∀ l → l ∈ L → Ty)} {l : Fin n} {ins : l ∈ L}
                   → Γ ⊢ e ⇒ Single (VLab{x = l}) (Label L')
-                  → L ⊆ L'
+                  → L' ⊆ L
                   → Γ ⇒ A ≡ (f l ins)
                   → Γ ⇒ A ≡ CaseT V f               
     AConvCaseXL : {Γ Γ' : TEnv {n}} {B D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
