@@ -269,10 +269,9 @@ module typing where
            → Γ ⊢ e ⇐ A
            → Γ ⊢ ([ 0 ↦ V ]ᵀ B)
            → Γ ⊢ App M V ⇒ ([ 0 ↦ V ]ᵀ B)
-    SigmaAI : {Γ : TEnv {n}} {A A' B : Ty {n}} {M N : Exp {n}}
+    SigmaAI : {Γ : TEnv {n}} {A B : Ty {n}} {M N : Exp {n}}
               → Γ ⊢ M ⇐ A
-              → Γ ⇒ A' ≤ A
-              → ⟨ A' , Γ ⟩ ⊢ N ⇒ B
+              → ⟨ A , Γ ⟩ ⊢ N ⇒ B
               → Γ ⊢ Prod M N ⇒ Sigma A B
     PairAI : {Γ : TEnv {n}} {A B : Ty {n}} {e N : Exp {n}} {V : Val e}
              → Γ ⊢ e ⇒ A
@@ -417,7 +416,7 @@ module progress where
        with canonical-forms-pi {n} {e} {A} {B} {D} j x₁ x₄
   ...     | fst , snd rewrite snd = step (β-App x)
   progress {n} {LabI x} {.(Single VLab (Label ⁅ x ⁆))} (LabAI x₁) = value VLab
-  progress {n} {Prod e e₁} {.(Sigma A B)} (SigmaAI {A = A} {B = B} (SubTypeA{A = A₁} x x₂) x₁ j)
+  progress {n} {Prod e e₁} {.(Sigma A B)} (SigmaAI {A = A} {B = B} (SubTypeA{A = A₁} x x₂) x₁)
     with progress {n} {e} {A₁} x
   ...  | step x₃ = step (ξ-Prod x₃)
   ...  | value x₃ = step (β-Prod{v = x₃})
