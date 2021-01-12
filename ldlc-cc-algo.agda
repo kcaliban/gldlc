@@ -7,6 +7,9 @@ open import Data.Integer renaming (_+_ to _+ᶻ_ ; _≤_ to _≤ᶻ_ ; _≥_ to 
 open import Data.Integer.Properties using (⊖-≥ ; 0≤n⇒+∣n∣≡n ; +-monoˡ-≤)
 open import Data.Fin hiding (cast)
 open import Data.Fin.Subset renaming (∣_∣ to ∣_∣ˢ)
+open import Data.Fin.Subset.Properties
+open import Data.List hiding (_++_ ; length)
+open import Data.List.Relation.Unary.All
 open import Data.Vec hiding (_++_ ; length)
 open import Relation.Nullary
 open import Relation.Nullary.Negation
@@ -51,12 +54,6 @@ module syntx where
     Sigma : Ty {n} → Ty {n} → Ty
     CaseT : {s : Subset n} {e : Exp {n}} → ValU e → (f : ∀ l → l ∈ s → Ty {n}) → Ty
 
-  data TyG {n} where
-    GUnit : TyG UnitT
-    GLabel : {s : Subset n} → TyG (Label s)
-    GPi : TyG (Pi Dyn Dyn)
-    GSigma : TyG (Sigma Dyn Dyn)
-
   data TyNf {n} where
     NfDyn : TyNf Dyn
     NfUnit : TyNf UnitT
@@ -66,7 +63,7 @@ module syntx where
     
   data ValU {n} where
     UVal : {e : Exp {n}} → Val e → ValU e
-    UCast : {e : Exp {n}} {G : Ty {n}} {v : Val e} {g : TyG G} → ValU (Cast e Dyn G)
+    UCast : {e : Exp {n}} {G : Ty {n}} → Val e → TyG G → ValU (Cast e Dyn G)
     
   data Val {n} where
     VUnit : Val UnitE
@@ -78,6 +75,12 @@ module syntx where
     VCast : {e : Exp} {G : Ty {n}} {v : Val e} {g : TyG G} → Val (Cast e G Dyn)
     VCastFun : {e : Exp} {nA nA' B B' : Ty {n}} {v : Val e} {nfA : TyNf nA} {nfA' : TyNf nA'} → Val (Cast e (Pi nA B) (Pi nA' B'))
 
+  data TyG {n} where
+    GUnit : TyG UnitT
+    GLabel : {s : Subset n} → TyG (Label s)
+    GPi : TyG (Pi Dyn Dyn)
+    GSigma : TyG (Sigma Dyn Dyn)
+    GSingle : {l : Fin n} {s : Subset n} {ins : l ∈ s} → TyG (Single (VLab{x = l}) (Label s))
 
   -- Negative predicates
   data notSingle {n : ℕ} : Ty {n} → Set where
@@ -88,6 +91,9 @@ module syntx where
 
   notsingle-label : {n : ℕ} {L : Subset n} → notSingle (Label L)
   notsingle-label {n} {L} = notsingle λ e B W ()
+
+  notsingle-dyn : {n : ℕ} → notSingle {n} Dyn
+  notsingle-dyn {n} = notsingle λ e B W ()
 
   -- variable in expression
   data _∈`_ {n : ℕ} : ℕ → Exp {n} → Set where
@@ -113,6 +119,64 @@ module syntx where
 
   -- Decidable Type equality
   _≡ᵀ?_ : {n : ℕ} (A B : Ty {n}) → Dec (A ≡ B)
+  _≡ᵉ?_ : {n : ℕ} (e e' : Exp {n}) → Dec (e ≡ e')
+
+  Val?_ : {n : ℕ} (e : Exp {n}) → Dec (Val e)
+
+  TyG?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG A)
+  TyG? UnitT = {!!}
+  TyG? Dyn = {!!}
+  TyG? Single VLab (Label s) = yes GSingle
+  TyG? Single x A = no {!!} 
+  TyG? Label x = yes GLabel
+  TyG? Pi A A₁ = {!!}
+  TyG? Sigma A A₁ = {!!}
+  TyG? CaseT x f = {!!}
+
+  Val? Var x = yes VVar
+  Val? UnitE = yes VUnit
+  Val? Bot = yes VBot
+  Val? Abs e = yes VFun
+  Val? App e x = no (λ ())
+  Val? LabI x = yes VLab
+  Val? CaseE x f = no (λ ())
+  Val? Prod e e₁ = no (λ ())
+  Val? ProdV x e
+    with Val? e
+  ...  | yes v = yes (VProd x v)
+  ...  | no ¬v = no {!!}
+  Val? LetP e e₁ = no (λ ())
+  Val? LetE e e₁ = no (λ ())
+  Val? Cast e x x₁ = {!!}
+
+  UnitT ≡ᵀ? UnitT = yes refl
+  Dyn ≡ᵀ? Dyn = yes refl
+  Single x A ≡ᵀ? Single x' A' = {!!}
+  Label x ≡ᵀ? Label x'
+    with x ≡ˢ? x'
+  ...  | yes p rewrite p = yes refl
+  ...  | no ¬p = no {!!}
+--  ...  | yes p = ?
+  Pi A A₁ ≡ᵀ? B = {!!}
+  Sigma A A₁ ≡ᵀ? B = {!!}
+  CaseT x f ≡ᵀ? B = {!!}
+
+  Var x ≡ᵉ? e' = {!!}
+  UnitE ≡ᵉ? e' = {!!}
+  Bot ≡ᵉ? e' = {!!}
+  Abs e ≡ᵉ? e' = {!!}
+  App e x ≡ᵉ? e' = {!!}
+  LabI x ≡ᵉ? LabI x'
+    with x Data.Fin.≟ x'
+  ...  | yes p rewrite p = yes refl
+  ...  | no ¬p = no {!!}
+  CaseE x f ≡ᵉ? e' = {!!}
+  Prod e e₁ ≡ᵉ? e' = {!!}
+  ProdV x e ≡ᵉ? e' = {!!}
+  LetP e e₁ ≡ᵉ? e' = {!!}
+  LetE e e₁ ≡ᵉ? e' = {!!}
+  Cast e x x₁ ≡ᵉ? e' = {!!}
+
 
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
@@ -167,7 +231,7 @@ module substitution where
   shift-val {n} {d} {c} {.(ProdV V _)} (VProd V V₁) = VProd (shift-val V) (shift-val V₁)
 
   shift-valu {n} {d} {c} {e} (UVal x) = UVal (shift-val x)
-  shift-valu {n} {d} {c} {.(Cast _ Dyn _)} (UCast{v = v}{g = g}) = UCast{v = shift-val v}{g = shift-tyg g}
+  shift-valu {n} {d} {c} {.(Cast _ Dyn _)} (UCast v g) = UCast (shift-val v) (shift-tyg g)
 
   shift-tyg {n} {d} {c} {.UnitT} GUnit = GUnit
   shift-tyg {n} {d} {c} {.(Label _)} GLabel = GLabel
@@ -236,7 +300,7 @@ module substitution where
   sub-val {n} {k} {.(ProdV v' _)} {e'} {v} (VProd v' v'') = VProd (sub-val v') (sub-val v'')
 
   sub-valu {n} {k} {e} {e'} {v} (UVal x) = UVal (sub-val x)
-  sub-valu {n} {k} {.(Cast _ Dyn _)} {e'} {v} (UCast{v = v'}{g = g}) = UCast{v = sub-val v'}{g = sub-tyg g}
+  sub-valu {n} {k} {.(Cast _ Dyn _)} {e'} {v} (UCast v' g) = UCast (sub-val v') (sub-tyg g)
 
   sub-tyg {n} {k} {.UnitT} {e} {v} GUnit = GUnit
   sub-tyg {n} {k} {.(Label _)} {e} {v} GLabel = GLabel
@@ -252,7 +316,7 @@ module substitution where
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-module typing where
+module typing+semantics where
   open syntx
   open substitution
 
@@ -277,21 +341,6 @@ module typing where
     here : {T : Ty} {Γ : TEnv} → 0 ∶ T ∈ ⟨ T , Γ ⟩
     there : {n : ℕ} {T₁ T₂ : Ty} {Γ : TEnv} → n ∶ T₁ ∈ Γ → (ℕ.suc n) ∶ T₁ ∈ ⟨ T₂ , Γ ⟩
 
-  -- precise cast function
-  cast : {n : ℕ} → Ty {n} → Ty {n} → Ty {n} → Ty {n}
-  cast (Single V A) A' B = ?
-  cast A A' B = {!!}
-{-
-    with A ≡ᵀ? A'
-  ... | yes p = B
-  ... | no ¬p
-      with A
-  ...    | Single V A*
-         with A ≡ᵀ? A*
-  ...       | yes p' = {!!}
-  ...       | no ¬p' = {!!}
-  ...    | A = {!!}
--}
   ---- Algorithmic Typing
   -- Type environment formation
   data ⊢_ok {n : ℕ} : TEnv {n} → Set
@@ -311,6 +360,12 @@ module typing where
   data _⊢_≡ᵀ_ {n : ℕ} : TEnv {n} → Ty {n} → Ty {n} → Set
   -- Consistency
   data _∣_⊢_~_ {n : ℕ} : TEnv {n} → TEnv {n} → Ty {n} → Ty {n} → Set
+  -- Type reduction
+  data _↠_ {n : ℕ} : Ty {n} → Ty {n} → Set
+  -- Expression reduction
+  data _⇨_ {n : ℕ} : Exp {n} → Exp {n} → Set
+  -- precise cast function
+  cast : {n : ℕ} → Ty {n} → Ty {n} → Ty {n} → Ty {n}
 
   -- Implementations
   data ⊢_ok {n} where
@@ -327,7 +382,7 @@ module typing where
     LabF : {Γ : TEnv {n}} {L : Subset n} → ⊢ Γ ok → Γ ⊢ Label L
     PiF : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A → ⟨ A , Γ ⟩ ⊢ B → Γ ⊢ Pi A B
     SigmaF : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ A → ⟨ A , Γ ⟩ ⊢ B → Γ ⊢ Sigma A B
-    SingleF : {Γ : TEnv {n}} {A : Ty {n}} {e : Exp {n}} {V : Val e} → ⊢ Γ ok → Γ ⊢ e ◁ A → notSingle A → Γ ⊢ Single V A
+    SingleF : {Γ : TEnv {n}} {A : Ty {n}} {e : Exp {n}} {V : Val e} → ⊢ Γ ok → Γ ⊢ e ▷ A → notSingle A → Γ ⊢ Single V A
     CaseF : {Γ : TEnv {n}} {L : Subset n} {e : Exp {n}} {U : ValU e} {f : ∀ l → l ∈ L → Ty {n}} {f-ok : ∀ l → (i : l ∈ L) → Γ ⊢ (f l i)} → Γ ⊢ e ◁ Label L → Γ ⊢ CaseT U f
 
   data _⊢_◁_ {n} where
@@ -370,10 +425,10 @@ module typing where
                → (Γ' ++ ⟨ D , Γ ⟩) ⊢ A ≤ᵀ CaseT (UVal (VVar{i = length Γ'})) f
     ASubCaseXLDyn : {Γ Γ' : TEnv {n}} {B : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                   → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (f l i) ≤ᵀ B)
-                  → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L}{v = (VVar{i = length Γ'})}{g = GLabel}) f ≤ᵀ B
+                  → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f ≤ᵀ B
     ASubCaseXRDyn : {Γ Γ' : TEnv {n}} {A : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                   → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ A ≤ᵀ (f l i))
-                  → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ A ≤ᵀ CaseT (UCast{G = Label L}{v = (VVar{i = length Γ'})}{g = GLabel}) f 
+                  → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ A ≤ᵀ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f 
 
 
   data _⊢_▷_ {n} where
@@ -395,7 +450,7 @@ module typing where
              → Θ ⊢ CaseE (UVal (VVar{i = length Γ'})) f ▷ CaseT (UVal (VVar{i = length Γ'})) f-t
     LabAExDyn : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {f : ∀ l → l ∈ L → Exp {n}} {f-t : ∀ l → l ∈ L → Ty {n}} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                 → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (f l i) ▷ (f-t l i))
-                → Θ ⊢ CaseE (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) f ▷ CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) f-t             
+                → Θ ⊢ CaseE (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f ▷ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f-t             
     PiAI : {Γ : TEnv {n}} {A B : Ty {n}}  {M : Exp {n}} → ⟨ A , Γ ⟩ ⊢ M ▷ B → Γ ⊢ Abs M ▷ Pi A B
     PiAE : {Γ : TEnv {n}} {A B D : Ty {n}} {M e : Exp {n}} {V : Val e}
            → Γ ⊢ M ▷ D
@@ -451,12 +506,12 @@ module typing where
                    → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
                    → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
                    → (ins : l₀ ∈ L)
-                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) fᴰ)
+                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
     AUCaseXDyn-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n}
                    → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
                    → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
                    → (ins : l₀ ∈ L)
-                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) fᴰ)
+                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
 
   data _⊢_≡ᵀ_ {n} where
     AConvUnit : {Γ : TEnv {n}} → Γ ⊢ UnitT ≡ᵀ UnitT
@@ -485,10 +540,10 @@ module typing where
                → (Γ' ++ ⟨ D , Γ ⟩) ⊢ A ≡ᵀ CaseT (UVal (VVar{i = length Γ'})) f
     AConvCaseXLDyn : {Γ Γ' : TEnv {n}} {B : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                      → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ (f l i) ≡ᵀ B)
-                     → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L}{v = (VVar{i = length Γ'})}{g = GLabel}) f ≡ᵀ B
+                     → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f ≡ᵀ B
     AConvCaseXRDyn : {Γ Γ' : TEnv {n}} {A : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                      → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ⊢ A ≡ᵀ (f l i))
-                    → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ A ≡ᵀ CaseT (UCast{G = Label L}{v = (VVar{i = length Γ'})}{g = GLabel}) f
+                    → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ A ≡ᵀ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f
 
   data _∣_⊢_~_ {n} where
     AConsDynL : {Γ Γ' : TEnv {n}} {A : Ty {n}} → ⊢ Γ ∣ Γ' ok → Γ ∣ Γ' ⊢ Dyn ~ A
@@ -523,24 +578,11 @@ module typing where
     AConvCaseXLDyn : {Γ Γ' Δ Δ' : TEnv {n}} {B D' : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                      → (∀ l → (i : l ∈ L)
                        → (Δ ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ ⟩) ∣ (Δ' ++ ⟨ cast (Single (VLab{x = l}) (Label L)) (Label L) D' , Γ' ⟩) ⊢ (f l i) ~ B)
-                     → (Δ ++ ⟨ Dyn , Γ ⟩) ∣ (Δ' ++ ⟨ D' , Γ' ⟩) ⊢ CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) f ~ B
+                     → (Δ ++ ⟨ Dyn , Γ ⟩) ∣ (Δ' ++ ⟨ D' , Γ' ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f ~ B
     AConvCaseXRDyn : {Γ Γ' Δ Δ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}}
                      → (∀ l → (i : l ∈ L)
                        → (Δ ++ ⟨ cast (Single (VLab{x = l}) (Label L)) (Label L) D , Γ ⟩) ∣ (Δ' ++ ⟨ Single (VCast{G = Label L}{v = VLab{x = l}}{g = GLabel}) (Dyn) , Γ' ⟩) ⊢ A ~ (f l i))
-                     → (Δ ++ ⟨ D , Γ ⟩) ∣ (Δ' ++ ⟨ Dyn , Γ' ⟩) ⊢ A ~ CaseT (UCast{G = Label L}{v = VVar{i = length Γ'}}{GLabel}) f
-
-----------------------------------------------------------------------
-----------------------------------------------------------------------
-
-module semantics where
-  open syntx
-  open substitution
-  open typing  -- for ([] ∣ [] ⊢ G ~ nA)
-
-  -- Type reduction
-  data _↠_ {n : ℕ} : Ty {n} → Ty {n} → Set
-  -- Expression reduction
-  data _⇨_ {n : ℕ} : Exp {n} → Exp {n} → Set
+                     → (Δ ++ ⟨ D , Γ ⟩) ∣ (Δ' ++ ⟨ Dyn , Γ' ⟩) ⊢ A ~ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) f
 
   data _↠_ {n} where
     ξ-Case : {e e' : Exp {n}} {U : ValU e} {U' : ValU e'} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} → e ⇨ e' → CaseT U f ↠ CaseT U' f
@@ -567,30 +609,155 @@ module semantics where
              → CaseE (UVal (VLab{x = x})) f ⇨ f x ins
     Cast-Dyn : {e : Exp {n}} {v : Val e} → Cast e Dyn Dyn ⇨ e
     Cast-Unit : {e : Exp {n}} {v : Val e} → Cast e UnitT UnitT ⇨ e
-    Cast-Label : {e : Exp {n}} {v : Val e} {L : Subset n} → Cast e (Label L) (Label L) ⇨ e
+    Cast-Label : {e : Exp {n}} {v : Val e} {L L' : Subset n} → L ⊆ L' → Cast e (Label L) (Label L') ⇨ e
     Cast-Func : {e e' : Exp {n}} {v : Val e} {w : Val e'} {A A' B B' : Ty {n}} → App (Cast e (Pi A B) (Pi A' B')) w ⇨ LetE (Cast e' A' A) (Cast (App e (VVar{i = 0})) B ([ 0 ↦ w ]ᵀ B'))
     Cast-Pair : {e e' : Exp {n}} {v : Val e} {w : Val e'} {A A' B B' : Ty {n}}
                 → Cast (ProdV v e') (Sigma A B) (Sigma A' B') ⇨ LetE (Cast e A A') (ProdV (VVar{i = 0}) (Cast e' ([ 0 ↦ v ]ᵀ B) B'))
-    Cast-Collapse-Label : {L L' : Subset n} {l : Fin n} → L ⊆ L' → Cast (Cast (LabI l) (Single (VLab{x = l}) (Label L)) Dyn) Dyn (Label L') ⇨ LabI l
+    Cast-Collapse-Label-Label : {e : Exp {n}} {v : Val e} {L L' : Subset n} → L ⊆ L' → Cast (Cast e (Label L) Dyn) Dyn (Label L') ⇨ e
+    Cast-Collapse-Single-Label : {e : Exp {n}} {v : Val e} {L L' : Subset n} {l : Fin n} → l ∈ L → L ⊆ L' → Cast (Cast e (Single (VLab{x = l}) (Label L)) Dyn) Dyn (Label L') ⇨ e
     Cast-Collapse : {e : Exp {n}} {v : Val e} {G : Ty {n}} {g : TyG G} → Cast (Cast e G Dyn) Dyn G ⇨ e
     Cast-Collide : {e : Exp {n}} {v : Val e} {G H : Ty {n}} → G ≢ H → Cast (Cast e G Dyn) Dyn H ⇨ Bot  -- Bot as blame?
     Cast-Reduce-L : {e : Exp {n}} {v : Val e} {A A' B : Ty {n}} → A ↠ A' → Cast e A B ⇨ Cast e A' B
     Cast-Reduce-R : {e : Exp {n}} {v : Val e} {A B B' : Ty {n}} → B ↠ B' → Cast e A B ⇨ Cast e A B'
     Cast-Factor-L : {e : Exp {n}} {v : Val e} {G nA : Ty {n}} {g : TyG G} {nfA : TyNf nA} → ([] ∣ [] ⊢ G ~ nA) → [] ⊢ nA → G ≢ nA → nA ≢ Dyn → Cast e nA Dyn ⇨ Cast (Cast e nA G) G Dyn
     Cast-Factor-R : {e : Exp {n}} {v : Val e} {G nB : Ty {n}} {g : TyG G} {nfB : TyNf nB} → ([] ∣ [] ⊢ G ~ nB) → [] ⊢ nB → G ≢ nB → nB ≢ Dyn → Cast e Dyn nB ⇨ Cast (Cast e Dyn G) G nB
-             
+
+  -- Big step semantics, cast function
+  Env : {ℕ} → Set
+  Env {n} = List (Exp {n})
+
+  access : {n : ℕ} {Γ : Env {n}} → (m : ℕ) → All Val Γ → Σ (Exp {n}) Val
+  access {n} {.[]} m [] = Bot , VBot
+  access {n} {(e ∷ Γ)} zero (px ∷ venv) = e , px
+  access {n} {.(_ ∷ _)} (ℕ.suc m) (px ∷ venv) = access m venv
+
+  castreduce : {n : ℕ} {e : Exp {n}} → Val e → Ty {n} → Ty {n} → Σ (Exp {n}) Val
+  -- Cast-Collapse-Label-Label
+  castreduce {n} {e} (VCast{e = e'}{Label s}{v}{g}) Dyn (Label s')
+    with s ⊆? s'
+  ...  | yes p = e' , v
+  ...  | no ¬p = Bot , VBot
+  -- Cast-Collapse-Single-Label
+  castreduce {n} {e} (VCast{e'}{Single (VLab{x = x}) (Label s)}{v}{g}) Dyn (Label s')
+    with x ∈? s | s ⊆? s'
+  ...  | yes ins | yes subset = e' , v
+  ...  | _ | _ = Bot , VBot
+  -- Collapse/Collide
+  castreduce {n} {e} (VCast{e = e'}{G}{v}{g}) Dyn B
+    with G ≡ᵀ? B
+  ...  | yes p = e' , v
+  ...  | no ¬p = Bot , VBot
+  -- Illegal
+  castreduce {n} {e} (VCast{e = e'}{G}{v}{g}) A B = Bot , VBot
+  -- Collapse/Collide
+  castreduce {n} {e} (VCastFun{e = e'}{nA}{nA'}{B}{B'}{v}) A B*
+    with A ≡ᵀ? Pi nA' B'
+  ...  | no ¬p = Bot , VBot
+  ...  | yes p
+       with B* ≡ᵀ? Pi nA B
+  ...     | yes p' = e' , v
+  ...     | no ¬p' = Bot , VBot
+  -- Base Cases
+  castreduce {n} {e} V UnitT UnitT = e , V
+  castreduce {n} {e} V Dyn Dyn = e , V    
+  castreduce {n} {e} V (Label s) (Label s')
+    with (s ⊆? s')
+  ...  | yes p = e , V
+  ...  | no ¬p = Bot , VBot
+  -- Value
+  castreduce {n} {e} V G Dyn
+    with TyG? G
+  ...  | yes p = (Cast e G Dyn) , (VCast{v = V}{g = p})
+  ...  | no ¬p = Bot , VBot
+  -- Illegal
+  castreduce {n} {e} V A B = Bot , VBot
+
+  -- If term stuck, result is Bot / Singleton with Bot as expression
+  _∶_⇓ : {n : ℕ} {Γ : Env {n}} (venv : All Val Γ) (e : Exp {n}) →  Σ (Exp {n}) Val
+  _∶_⇓ᵀ : {n : ℕ} {Γ : Env {n}} (venv : All Val Γ) (T : Ty {n}) → Ty {n}
+
+  _∶_⇓ {n} {Γ} venv (Var x) = access x venv 
+  _∶_⇓ {n} {Γ} venv UnitE = UnitE , VUnit
+  _∶_⇓ {n} {Γ} venv Bot = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (Abs e) = Abs e , VFun
+  -- Cast-Function
+  _∶_⇓ {n} {Γ} venv (App{e = e'} (Cast (Abs e) A B) x)
+    with venv ∶ A ⇓ᵀ | venv ∶ B ⇓ᵀ | venv ∶ e' ⇓   -- evaluate "x" again, could be a variable
+  ...  | Pi Â B̂ | Pi Â' B̂' | ê , v̂ = venv ∶ LetE (Cast e' Â' Â) (Cast (App (Abs e) (VVar{i = 0})) B̂ ([ 0 ↦ v̂ ]ᵀ B̂')) ⇓
+  ...  | _ | _ | _ = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (App{e = e'} e x)   -- evaluate "x" again, could be a variable
+    with venv ∶ e ⇓ | venv ∶ e' ⇓
+  ...  | (Abs e*) , VFun | ê , v̂ = (v̂ ∷ venv) ∶ e* ⇓ 
+  ...  | e* | _  = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (LabI x) = LabI x , VLab
+  _∶_⇓ {n} {Γ} venv (CaseE{s = s}{e = e} x f)
+    with venv ∶ e ⇓
+  ...  | (LabI l) , VLab
+       with l ∈? s
+  ...     | yes ins = venv ∶ (f l ins) ⇓ 
+  ...     | no ¬ins = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (CaseE{e = e} x f) | e' = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (Prod e e₁)
+    with venv ∶ e ⇓
+  ...  | e' , v
+       with ((v ∷ venv) ∶ e₁ ⇓)
+  ...     | e₁' , v' = (ProdV v e₁') , (VProd v v')
+  _∶_⇓ {n} {Γ} venv (ProdV x e)
+    with venv ∶ e ⇓
+  ...  | e' , v = (ProdV x e') , (VProd x v)
+  _∶_⇓ {n} {Γ} venv (LetP e e')
+    with venv ∶ e ⇓
+  ...  | ProdV{e = e*} v₁ e₂ , VProd .v₁ v₂
+       with venv ∶ e* ⇓ | venv ∶ e₂ ⇓   -- same as in App, what if one of them is a "Var"?
+  ...     | e₁' , v₁' | e₂' , v₂' = (v₂' ∷ (v₁' ∷ venv)) ∶ e' ⇓
+  _∶_⇓ {n} {Γ} venv (LetP e e') | e'' = Bot , VBot
+  _∶_⇓ {n} {Γ} venv (LetE e e₁)
+    with venv ∶ e ⇓
+  ...  | e' , v = _∶_⇓{Γ = e' ∷ Γ} (v ∷ venv) e₁
+  _∶_⇓ {n} {Γ} venv (Cast e A B)
+    with venv ∶ e ⇓ | venv ∶ A ⇓ᵀ | venv ∶ B ⇓ᵀ
+  -- Cast-Pair
+  ...  | ProdV{e = e₁} v₁ e₂ , VProd .v₁ v₂ | Sigma Â B̂ | Sigma Â' B̂' = venv ∶ LetE (Cast e₁ Â Â') (ProdV (VVar{i = 0}) (Cast e₂ ([ 0 ↦ v₁ ]ᵀ B̂) B̂')) ⇓
+  ...  | e' , v' | A' | B' = castreduce v' A' B'
+
+  venv ∶ UnitT ⇓ᵀ = UnitT
+  venv ∶ Dyn ⇓ᵀ = Dyn
+  venv ∶ Single x A ⇓ᵀ = Single x A
+  venv ∶ Label x ⇓ᵀ = Label x
+  venv ∶ Pi A A₁ ⇓ᵀ
+    with venv ∶ A ⇓ᵀ
+  ...  | A' = Pi A' A₁
+  venv ∶ Sigma A A₁ ⇓ᵀ
+    with venv ∶ A ⇓ᵀ
+  ...  | A' = Sigma A' A₁
+  venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ
+    with venv ∶ e ⇓
+  ...  | (LabI l) , VLab
+         with l ∈? s
+  ...       | yes ins = venv ∶ (f l ins) ⇓ᵀ
+  ...       | no nins = CaseT{e = LabI l} (UVal VLab) f
+  venv ∶ CaseT{e = e} x f ⇓ᵀ | e' , v' = CaseT{e = e'} (UVal v') f
+
+  cast (Single {e = e} V A) (Single {e = e'} W A') B
+    with A ≡ᵀ? A' | e ≡ᵉ? e'
+  ...  | yes p | yes p' = B
+  ...  | _ | _ = Single VBot B
+  cast (Single {e = e} V A) A' B
+    with A ≡ᵀ? A' | [] ∶ (Cast e A B) ⇓
+  ...  | yes p | e' , W = Single W B
+  ...  | no ¬p | e' , W = Single VBot B
+  cast A A' B
+    with A ≡ᵀ? A'
+  ...  | yes p = B
+  ...  | no ¬p = Single VBot B
+
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
 module examples where
   open syntx
   open substitution
-  open typing
-  open semantics
-
-  -- ∅ ⊢ ⟨ l : S{l : {l}} ⇒ * , case (0 : * => {l, l'}) of {l : (), l' : LabI l'} ⟩
-  --     : Σ(0 : *)(case (0 : * => {l, l'}) of {l : Unit, l' : S{l' : {l'}}}) ⇒ Σ(0 : {l, l'})(case 0 of {l : Unit, l' : S{l' : {l'}}}
-  --     ▷ Σ(0 : {l, l'})(case 0 of {l : Unit, l' : S{l' : {l'}}}
+  open typing+semantics
 
   [l] : Subset 2
   [l] = inside ∷ (outside ∷ [])
@@ -601,6 +768,17 @@ module examples where
   [l,l'] : Subset 2
   [l,l'] = inside ∷ (inside ∷ [])
 
+  -- Big step semantics, cast reduction
+  -- (λx . case (x : * => {l}) {l : ()}) (l : S{l : {l}} => *) ⇓ ()
+  example-case : proj₁ ([] ∶ App (Abs (CaseE{s = [l]} (UCast{G = Label [l]} (VVar{i = 0}) GLabel) λ l x → UnitE))
+                                 (VCast{e = LabI zero}{G = Single (VLab{x = zero}) (Label [l])}{v = VLab}{g = GSingle{ins = here}}) ⇓) ≡ UnitE
+  example-case = refl
+
+  --  l : S{l : {l}} => Unit ⇓ ⊥
+  example-bad : proj₁ ([] ∶ Cast (LabI zero) (Single (VLab{x = zero}) (Label [l])) UnitT ⇓) ≡ Bot
+  example-bad = refl    
+
+  -- (λx . (case (x : * => [l,l']) of {l : (), l' : LabI l'}) : Π(x : *)(case ...) => Π(x : {l, l'})(case ...)) l
   f : (l : Fin 2) → l ∈ [l,l'] → Exp {2}
   f zero i = UnitE
   f (Fin.suc zero) i = LabI (Fin.suc zero)
@@ -608,9 +786,28 @@ module examples where
   fᵀ : (l : Fin 2) → l ∈ [l,l'] → Ty {2}
   fᵀ zero i = UnitT
   fᵀ (Fin.suc zero) i = Single (VLab{x = Fin.suc zero}) (Label [l'])
+  
+  example-function-f : Exp {2}
+  example-function-f = Abs (CaseE (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) f)
+  
+  example-function-f-cast : Exp {2}
+  example-function-f-cast = Cast example-function-f (Pi Dyn ((CaseT (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) fᵀ))) (Pi (Label [l,l']) (CaseT (UVal (VVar{i = 0})) fᵀ))
 
+  
+  example-function : proj₁ ([] ∶ App example-function-f-cast (VLab{x = zero}) ⇓) ≡ UnitE
+  example-function = refl
+  
+  -- Cast function
+  -- cast S{l : {l}} {l} {l, l'} => S{l : {l, l'}}
+  _ : cast (Single (VLab{x = zero}) (Label [l])) (Label [l]) (Label [l,l']) ≡ Single (VLab{x = zero}) (Label [l,l'])
+  _ = refl
+
+
+  -- ∅ ⊢ ⟨ l : S{l : {l}} ⇒ * , case (0 : * => {l, l'}) of {l : (), l' : LabI l'} ⟩
+  --     : Σ(0 : *)(case (0 : * => {l, l'}) of {l : Unit, l' : S{l' : {l'}}}) ⇒ Σ(0 : {l, l'})(case 0 of {l : Unit, l' : S{l' : {l'}}}
+  --     ▷ Σ(0 : {l, l'})(case 0 of {l : Unit, l' : S{l' : {l'}}}
   B : Ty {2}
-  B = CaseT (UCast{G = Label [l,l']}{v = VVar{i = 0}}{g = GLabel}) fᵀ
+  B = CaseT (UCast{G = Label [l,l']} (VVar{i = 0}) GLabel) fᵀ
 
   B' : Ty {2}
   B' = CaseT (UVal (VVar{i = 0})) fᵀ
@@ -622,11 +819,27 @@ module examples where
   T' = Sigma (Label [l,l']) B'
   
   e : Exp {2}
-  e = Cast (Prod (Cast (LabI zero) (Single (VLab{x = zero}) (Label [l])) Dyn) (CaseE{s = [l,l']} (UCast{G = Label [l,l']}{v = VVar{i = 0}}{g = GLabel}) f))
+  e = Cast (Prod (Cast (LabI zero) (Single (VLab{x = zero}) (Label [l])) Dyn) (CaseE{s = [l,l']} (UCast{G = Label [l,l']} (VVar{i = 0}) GLabel) f))
       T T' 
 
+  lawl : cast (Single{n = 2} (VLab{x = zero}) (Label ⁅ zero ⁆)) (Label ⁅ zero ⁆) Dyn ≡ Single (VCast{e = LabI zero}{G =  Label ⁅ zero ⁆}{v = VLab}{g = GLabel}) Dyn
+  lawl = refl
+  
+  lol : (l : Fin 2) (i : l ∈ [l,l']) → cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) Dyn ≡ Single (VCast{e = LabI l}{G = Label ⁅ l ⁆}{v = VLab}{g = GLabel} ) Dyn
+  lol zero i = refl
+  lol (Fin.suc zero) i = refl
+  
+  f-j-env-ok : (l : Fin 2) (i : l ∈ [l,l']) → ⊢ ⟨ Single (VCast{e = LabI l}{G = Single (VLab{x = l}) (Label ⁅ l ⁆)}{v = VLab}{g = GSingle}) Dyn , [] ⟩ ok
+  f-j-env-ok l i = entry empty (SingleF empty (CastA (LabAI empty) (AConsDynR empty) {!refl!}) notsingle-dyn)
+  -- !!! result of cast function is Singleton, S{(l : {l} => *) : *} never well-formed
+  
+  f-j : (l : Fin 2) (i : l ∈ [l,l']) → ⟨ Single (VCast{e = LabI l}{G = Label [l,l']}{v = VLab}{g = GLabel}) Dyn , [] ⟩ ⊢ f l i ▷ fᵀ l i
+  f-j zero i = UnitAI {!!}
+  f-j (Fin.suc zero) i = LabAI {!!}
+  
   j : [] ⊢ e ▷ B'
-  j = CastA (SigmaAI (SubTypeA (CastA (LabAI empty) (AConsDynR empty) {!!}) {!!}) {!!}) {!!} {!!}
+  j = CastA (SigmaAI (SubTypeA (CastA (LabAI empty) (AConsDynR empty) refl) ASubDyn) (LabAExDyn{eq = refl} f-j)) (AConsSigma {!!}) {!!}
+
 {-
 module progress where
   open syntx
