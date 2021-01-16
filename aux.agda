@@ -105,3 +105,6 @@ x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {Fin.suc l} (there ins) = cong Fin.su
 
 l∈L⇒[l]⊆L : {n : ℕ} {l : Fin n} {L : Subset n} → l ∈ L → ⁅ l ⁆ ⊆ L
 l∈L⇒[l]⊆L {n} {l} {L} ins x rewrite (x∈[l]⇒x≡l x) = ins
+
+[l]⊆L⇒l∈L : {n : ℕ} {l : Fin n} {L : Subset n} → ⁅ l ⁆ ⊆ L → l ∈ L 
+[l]⊆L⇒l∈L {n} {l} {L} sub = sub (x∈⁅x⁆ l)
