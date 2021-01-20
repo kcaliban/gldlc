@@ -647,6 +647,7 @@ module typing+semantics where
     ξ-ProdV : {e e₂ e₂' : Exp {n}} {v : Val e} → e₂ ⇨ e₂' → ProdV v e₂ ⇨ ProdV v e₂'
     ξ-LetP : {e₁ e₁' e₂ : Exp {n}} → e₁ ⇨ e₁' → LetP e₁ e₂ ⇨ LetP e₁' e₂
     ξ-Cast : {e₁ e₂ : Exp {n}} {A B : Ty {n}} → e₁ ⇨ e₂ → Cast e₁ A B ⇨ Cast e₂ A B
+    ξ-Case : {s : Subset n} {e₁ e₂ : Exp {n}} {U : ValU e₁} {U' : ValU e₂} {A B : Ty {n}} {f : ∀ l → l ∈ s → Exp {n}} → e₁ ⇨ e₂ → CaseE U f ⇨ CaseE U' f
     β-App : {e e' : Exp {n}} → (v : Val e') → (App (Abs e) v) ⇨ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e) ])
     β-Prod : {e e' : Exp {n}} {v : Val e} → Prod e e' ⇨ ProdV v (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
     β-LetE : {e e' : Exp {n}} → (v : Val e) → LetE e e' ⇨ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
@@ -1341,6 +1342,13 @@ module progress where
   ...       | Label x₅ = contradiction (≡-trans (sym thd) y) (λ ())
   ...       | CaseT x₅ f = contradiction (≡-trans (sym thd) y) (λ ())
 
+  cf-pi : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ (e ≡ Bot)
+  cf-pi {n} {e} {D} {A} {B} j unf v = {!unf!}
+
+  cf-sigma : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e''))) ⊎ e ≡ Bot
+  
+  -- cf-l-single▷ : {n : ℕ} {e : Exp {n}} {l : Fin n} → [] ⊢ e ▷ Single (VLab{x = l}) → Val e → (∃[ l ]((e ≡ LabI l) × l ∈ s) ⊎ e ≡ Bot)
+
   -- Main theorem
   data Progress-Type {n : ℕ} (A : Ty {n}) {j : [] ⊢ A} : Set where
     step : {A' : Ty {n}} → A ↠ A' → Progress-Type A
@@ -1376,12 +1384,85 @@ module progress where
   ...  | UVal (VLab{x = fst}) = step (β-Case{ins = thrd})
   progress-types {n} {(Single V A)} (SingleF{ok = ok} x x₁ x₂) = step β-Single
 
+  ------------------------------------------------------------------------------------------------
+  ------------------------------  Cases requiring canonical forms  -------------------------------
+  ------------------------------------------------------------------------------------------------
+
+  progress {n} {CaseE (UVal x₁) f} {T} (LabAEl j x j₁)
+    with cf-label◁ (SubTypeA j (ASubSingle (ASubLabel x) notsingle-label notcase-label)) x₁
+  ... | inj₁ (fst , fst₁ , snd) rewrite fst₁
+      with x₁
+  ...    | (VLab{x = l}) = step (β-LabE snd)
+  progress {n} {CaseE (UCast{e = e} x₁ x₂) f} {T} (LabAEl j x j₁)
+    with castView e
+  progress {n} {CaseE (UCast{e = Cast e₁ G Dyn}{G = H} (VCast V g) x₂) f} {T} (LabAEl j x j₁) | cast-v
+    with G ≡ᵀ? H
+  ...  | yes eq rewrite eq = step (ξ-Case Cast-Collapse)
+  ...  | no ¬eq = step (ξ-Case (Cast-Collide ¬eq))
+  -- case (V : * => G) {...}
+  -- => (V : * => G)
+  -- => (a) V ▷ * or (b) V ▷ S{ _ : *} (lemma 6)
+  ---- => V == blame. CONTRADICTION, NOT VALUE
+  progress {n} {CaseE (UCast{e = e} x₁ x₂) f} {T} (LabAEl j x j₁) | other-v = {!!}
+
+{-
+  cf-pi : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e' ⊎ e ≡ Bot)
+
+  cf-sigma : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e''))) ⊎ e ≡ Bot
+-}
+
+  progress {n} {App N M} {.([ 0 ↦ M ]ᵀ _)} (PiAE j x (SubTypeA x₁ x₃) x₂)
+    with progress {n} {N} j
+  ...  | step r = step (ξ-App r)
+  ...  | value v
+       with cf-pi {n} {N} j x v
+  ...     | inj₁ (fst , snd) rewrite snd = step (β-App M)
+  ...     | inj₂ eq = {!!}  --
+  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁)
+    with progress {n} {N} j
+  ...  | step r = step (ξ-LetP r)
+  ...  | value v
+       with cf-sigma {n} {N} j x v
+  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁) | value v | inj₁ (fst , snd , thd , fth) rewrite fth
+    with v
+  ...  | VProd .snd w = step (β-LetP snd w)
+  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁) | value v | inj₂ eq = {!!}
+
+  ------------------------------------------------------------------------------------------------
+  -------------------------------------  Trivial cases  ------------------------------------------
+  ------------------------------------------------------------------------------------------------
+
+  progress {n} {(LetE M N)} {T} (Let x j j₁)
+    with progress {n} {M} j
+  ...  | step r = step (ξ-LetE r)
+  ...  | value V = step (β-LetE V)
+  progress {n} {(ProdV V N)} {.(Sigma _ _)} (PairAI j j₁)
+    with progress {n} {N} j₁
+  ...  | step r = step (ξ-ProdV r)
+  ...  | value W = value (VProd V W)
+  progress {n} {.(Abs _)} {.(Pi _ _)} (PiAI j) = value VFun
   progress {n} {.Bot} {T} (BotA x) = value VBot
   progress {n} {.UnitE} {.UnitT} (UnitAI x) = value VUnit  
   progress {n} {.(LabI _)} {.(Single VLab (Label ⁅ _ ⁆))} (LabAI x) = value VLab
+  progress {n} {Prod N M} {.(Sigma _ _)} (SigmaAI (SubTypeA x x₁) j)
+    with progress {n} {N} x
+  ...  | step r = step (ξ-Prod r)
+  ...  | value W = step (β-Prod{v = W})
+
+  ------------------------------------------------------------------------------------------------
+  ------------------------------------  Impossible cases  ----------------------------------------
+  ------------------------------------------------------------------------------------------------
+  
+  progress {n} {.(CaseE (UVal VVar) _)} {.(CaseT (UVal VVar) _)} (LabAEx {eq = eq} x x₁) = contradiction eq env-empty-++
+  progress {n} {.(CaseE (UCast VVar GLabel) _)} {.(CaseT (UCast VVar GLabel) _)} (LabAExDyn {eq = eq} x) = contradiction eq env-empty-++
+  
+{-
+
+  ------------------------------------------------------------------------------------------------
+  -----------------------------------------  Cast  -----------------------------------------------
+  ------------------------------------------------------------------------------------------------
 
   progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok'} j x x₁ y)
-  -- reduction of e, A, B
     with  progress{e = e} j | progress-types ok | progress-types ok'
   ...  | step r | _ | _ = step (ξ-Cast r)
   ...  | value W | step r | _ = step (Cast-Reduce-L{v = W} r)
@@ -1551,15 +1632,4 @@ module progress where
   progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | value W | nf (NfSigma{nfA = nfA}) | nf (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' | inj₂ (eq'') rewrite eq''
     = step (⊥-Cast{pre = (inj₂ (λ ())) , λ C D → λ ()})
 
-
-  progress {n} {.(CaseE _ _)} {T} (LabAEl j x j₁) = {!!}
-  progress {n} {.(CaseE (UVal VVar) _)} {.(CaseT (UVal VVar) _)} (LabAEx {eq = eq} x x₁) = contradiction eq env-empty-++
-  progress {n} {.(CaseE (UCast VVar GLabel) _)} {.(CaseT (UCast VVar GLabel) _)} (LabAExDyn {eq = eq} x) = contradiction eq env-empty-++
-  progress {n} {.(Abs _)} {.(Pi _ _)} (PiAI j) = {!!}
-  progress {n} {.(App _ _)} {.([ 0 ↦ _ ]ᵀ _)} (PiAE j x x₁ x₂) = {!!}
-  progress {n} {.(Prod _ _)} {.(Sigma _ _)} (SigmaAI x j) = {!!}
-  progress {n} {.(ProdV _ _)} {.(Sigma _ _)} (PairAI j j₁) = {!!}
-  progress {n} {.(LetP _ _)} {T} (SigmaAE j x j₁ x₁) = {!!}
-  progress {n} {.(LetE _ _)} {T} (Let x j j₁) = {!!}
-
-
+-}
