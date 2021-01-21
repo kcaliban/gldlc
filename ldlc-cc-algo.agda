@@ -529,28 +529,28 @@ module typing+semantics where
               → L' ⊆ L
               → Γ ⊢ (f l ins) ⇓ D
               → Γ ⊢ CaseT U f ⇓ D         
-    AUCaseX-P : {Γ Γ' : TEnv {n}} {D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n}
+    AUCaseX-P : {Γ Γ' Θ : TEnv {n}} {D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
               → Γ ⊢ D ≤ᵀ Label L
               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
               → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
               → (ins : l₀ ∈ L)
-              → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UVal (VVar{i = length Γ'})) fᴰ)
-    AUCaseX-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n}
+              → Θ ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UVal (VVar{i = length Γ'})) fᴰ)
+    AUCaseX-S : {Γ Γ' Θ : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
               → Γ ⊢ D ≤ᵀ Label L
               → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
               → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
               → (ins : l₀ ∈ L)
-              → (Γ' ++ ⟨ D , Γ ⟩) ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UVal (VVar{i = length Γ'})) fᴰ)
-    AUCaseXDyn-P : {Γ Γ' : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n}
+              → Θ ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UVal (VVar{i = length Γ'})) fᴰ)
+    AUCaseXDyn-P : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                    → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
                    → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
                    → (ins : l₀ ∈ L)
-                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
-    AUCaseXDyn-S : {Γ Γ' : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n}
+                   → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
+    AUCaseXDyn-S : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                    → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
                    → (∀ l l' → (i : l ∈ L) → (i' : l' ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴬ l i) ≡ᵀ (fᴬ l' i'))
                    → (ins : l₀ ∈ L)
-                   → (Γ' ++ ⟨ Dyn , Γ ⟩) ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
+                   → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (fᴬ l₀ ins) (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴰ)
 
   data _⊢_≡ᵀ_ {n} where
     AConvUnit : {Γ : TEnv {n}} → Γ ⊢ UnitT ≡ᵀ UnitT
@@ -1342,10 +1342,29 @@ module progress where
   ...       | Label x₅ = contradiction (≡-trans (sym thd) y) (λ ())
   ...       | CaseT x₅ f = contradiction (≡-trans (sym thd) y) (λ ())
 
-  cf-pi : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ (e ≡ Bot)
+  cf-pi : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e')
   cf-pi {n} {e} {D} {A} {B} j unf v = {!unf!}
 
-  cf-sigma : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e''))) ⊎ e ≡ Bot
+  cf-sigma : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e'')))
+  cf-sigma {n} {.Bot} {A} {B} j VBot = {!!} -- ⊥ will be gone
+  cf-sigma {n} {.(Var _)} {A} {B} j VVar = {!!} -- var contradiction
+  cf-sigma {n} {.(ProdV v _)} {A} {B} j (VProd v v₁) = {!!}  -- what we want
+  cf-sigma {n} {.(Cast _ _ Dyn)} {A} {B} j (VCast v x) = {!!} -- Dyn ≠ Sigma A B
+  cf-sigma {n} {.(Cast _ (Pi _ _) (Pi _ _))} {A} {B} j (VCastFun v) = {!!} -- i ≠ Sigma A B
+   
+  cf-sigma-⇓ : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e'')))
+  cf-sigma-⇓ {n} {e} {.(Sigma A B)} {A} {B} j AURefl-S v = {!!}  -- cf-sigma
+  cf-sigma-⇓ {n} {.Bot} {.(Single _ _)} {A} {B} (BotA x) (AUSingle unf) VBot = {!!}  -- ⊥ will be gone
+  cf-sigma-⇓ {n} {.(Var _)} {.(Single _ _)} {A} {B} j (AUSingle unf) VVar = {!!} -- var contradiction
+  cf-sigma-⇓ {n} {.(LabI _)} {.(Single VLab (Label ⁅ _ ⁆))} {A} {B} (LabAI x) (AUSingle ()) VLab
+  cf-sigma-⇓ {n} {.(Cast _ _ Dyn)} {.(Single _ _)} {A} {B} j (AUSingle unf) (VCast v x) = {!j!}  -- A₁ = Dyn, Dyn ¬⇓ Sigma A B
+  cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(Single _ _)} {A} {B} j (AUSingle unf) (VCastFun v) = {!!} -- A₁ = Pi nA' B', Pi nA' B' ¬⇓ Sigma A B
+  cf-sigma-⇓ {n} {.Bot} {.(CaseT _ _)} {A} {B} j (AUCaseL x x₁ unf) VBot = {!!}  -- ⊥ will be gone
+  cf-sigma-⇓ {n} {.(Var _)} {.(CaseT _ _)} {A} {B} j (AUCaseL x x₁ unf) VVar = {!!}  -- var contradiction
+  cf-sigma-⇓ {n} {.(Cast _ _ Dyn)} {.(CaseT _ _)} {A} {B} j (AUCaseL x x₁ unf) (VCast v x₂) = {!!}  -- CaseT ≠ Dyn/S{Dyn}
+  cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} j (AUCaseL x x₁ unf) (VCastFun v) = {!!} -- CaseT ≠ (Pi nA' B')/S{Pi nA' B'}
+  cf-sigma-⇓ {n} {e} {.(CaseT (UVal VVar) _)} {.(_ _ ins)} {.(CaseT (UVal VVar) _)} j (AUCaseX-S x x₁ x₂ ins) v = {!!} -- contradiction
+  cf-sigma-⇓ {n} {e} {.(CaseT (UCast VVar GLabel) _)} {.(_ _ ins)} {.(CaseT (UCast VVar GLabel) _)} j (AUCaseXDyn-S x x₁ ins) v = {!!} -- contradiction
   
   -- cf-l-single▷ : {n : ℕ} {e : Exp {n}} {l : Fin n} → [] ⊢ e ▷ Single (VLab{x = l}) → Val e → (∃[ l ]((e ≡ LabI l) × l ∈ s) ⊎ e ≡ Bot)
 
@@ -1416,17 +1435,15 @@ module progress where
   ...  | step r = step (ξ-App r)
   ...  | value v
        with cf-pi {n} {N} j x v
-  ...     | inj₁ (fst , snd) rewrite snd = step (β-App M)
-  ...     | inj₂ eq = {!!}  --
+  ...     | (fst , snd) rewrite snd = step (β-App M)
   progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁)
     with progress {n} {N} j
   ...  | step r = step (ξ-LetP r)
   ...  | value v
-       with cf-sigma {n} {N} j x v
-  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁) | value v | inj₁ (fst , snd , thd , fth) rewrite fth
+       with cf-sigma-⇓ {n} {N} j x v
+  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁) | value v | (fst , snd , thd , fth) rewrite fth
     with v
   ...  | VProd .snd w = step (β-LetP snd w)
-  progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁) | value v | inj₂ eq = {!!}
 
   ------------------------------------------------------------------------------------------------
   -------------------------------------  Trivial cases  ------------------------------------------
