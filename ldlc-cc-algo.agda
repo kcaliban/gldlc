@@ -644,7 +644,6 @@ module typing+semantics where
     ξ-Sigma : {A A' B : Ty {n}} → A ↠ A' → Sigma A B ↠ Sigma A' B
     β-Single : {A : Ty {n}} {e : Exp {n}} {V : Val e}  → Single V A ↠ A
     β-Case : {l : Fin n} {s : Subset n} {ins : l ∈ s} {f : ∀ l → l ∈ s → Ty {n}} → CaseT (UVal (VLab{x = l})) f ↠ f l ins
-    Single-Bot : {e : Exp {n}} {V : Val e} → Single V Bot ↠ Bot
     Case-Bot : {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} → CaseT UBlame f ↠ Bot
     Pi-Bot-L : {B : Ty {n}} → Pi Bot B ↠ Bot
     Sigma-Bot-L : {B : Ty {n}} → Sigma Bot B ↠ Bot    
