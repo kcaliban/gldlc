@@ -1,3 +1,7 @@
+------------------------------------------------------------------------
+-- Auxiliary lemmas/functions
+------------------------------------------------------------------------
+
 module Aux where
 
 open import Data.Nat
@@ -19,16 +23,49 @@ open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
 open import Data.Empty renaming (⊥ to ⊥')
 
+------------------------------------------------------------------------
+-- Extensionality
+
 postulate
   ext : {A : Set}{B : A → Set}{f : (x : A) → B x} {g : (x : A) → B x} →
     (∀ x → f x ≡ g x) → f ≡ g
 
+------------------------------------------------------------------------
+-- Various properties
+
 sum-eq : {A B : Set} {x y : A} → (inj₁{B = B} x) ≡ (inj₁{B = B} y) → x ≡ y
 sum-eq {A} {B} {x} {.x} refl = refl
 
-in-subset-eq : {n : ℕ} {x : Fin n} {s : Subset n} → (l l' : x ∈ s) → l ≡ l'
-in-subset-eq {.(ℕ.suc _)} {.zero} here here = refl
-in-subset-eq {.(ℕ.suc _)} {.(Fin.suc _)} (there l) (there l') = cong there (in-subset-eq l l')
+------------------------------------------------------------------------
+-- Various subset properties
+
+x∷xs≡y∷ys⇒x≡y : {n : ℕ} {xs ys : Subset n} {x y : Bool} → (x ∷ xs) ≡ (y ∷ ys) → x ≡ y
+x∷xs≡y∷ys⇒x≡y {n} {xs} {.xs} {x} {.x} refl = refl
+
+x∷xs≡y∷ys⇒xs≡ys : {n : ℕ} {xs ys : Subset n} {x y : Bool} → (x ∷ xs) ≡ (y ∷ ys) → xs ≡ ys
+x∷xs≡y∷ys⇒xs≡ys {n} {xs} {.xs} {x} {.x} refl = refl
+
+empty-subset-outside : {n : ℕ} → (x : Fin n) → ¬ (⊥ [ x ]= inside)
+empty-subset-outside {.(ℕ.suc _)} zero ()
+empty-subset-outside {.(ℕ.suc _)} (Fin.suc x) (there ins) = empty-subset-outside x ins
+
+x∈[l]⇒x≡l : {n : ℕ} {x l : Fin n} → x ∈ ⁅ l ⁆ → x ≡ l
+x∈[l]⇒x≡l {.(ℕ.suc _)} {zero} {zero} ins = refl
+x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {zero} (there ins) = contradiction ins (empty-subset-outside x)
+x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {Fin.suc l} (there ins) = cong Fin.suc (x∈[l]⇒x≡l ins)
+
+l∈L⇒[l]⊆L : {n : ℕ} {l : Fin n} {L : Subset n} → l ∈ L → ⁅ l ⁆ ⊆ L
+l∈L⇒[l]⊆L {n} {l} {L} ins x rewrite (x∈[l]⇒x≡l x) = ins
+
+[l]⊆L⇒l∈L : {n : ℕ} {l : Fin n} {L : Subset n} → ⁅ l ⁆ ⊆ L → l ∈ L 
+[l]⊆L⇒l∈L {n} {l} {L} sub = sub (x∈⁅x⁆ l)
+
+in-subset-uniqueness : {n : ℕ} {x : Fin n} {s : Subset n} → (l l' : x ∈ s) → l ≡ l'
+in-subset-uniqueness {.(ℕ.suc _)} {.zero} here here = refl
+in-subset-uniqueness {.(ℕ.suc _)} {.(Fin.suc _)} (there l) (there l') = cong there (in-subset-uniqueness l l')
+
+------------------------------------------------------------------------
+-- Decidable equality of functions (f : l → l ∈ s → A)
 
 dec-manipulate : {n : ℕ} {A : Set} → (dec : (a a' : A) → Dec (a ≡ a')) → ((a a' : A ⊎ Fin 1) → Dec (a ≡ a'))
 dec-manipulate {n} {A} dec (inj₁ x) (inj₁ x₁)
@@ -60,7 +97,7 @@ f-manipulate-eq⇒f-eq {n} {A} {s} {f} {f'} eq
              with (eq' l)
            ...  | eq''
                 with l ∈? s
-           ...     | yes p rewrite (in-subset-eq i p) = sum-eq eq''
+           ...     | yes p rewrite (in-subset-uniqueness i p) = sum-eq eq''
            ...     | no ¬p = contradiction i ¬p
 
 f-eq⇒f-manipulate-eq : {n : ℕ} {A : Set} {s : Subset n} {f f' : (l : Fin n) → l ∈ s → A} → f ≡ f' → (f-manipulate f) ≡ (f-manipulate f')
@@ -81,12 +118,8 @@ _≡ᶠ?_ {n} {s} {A} {dec} f f'
 ...     | yes p = yes (f-manipulate-eq⇒f-eq p)
 ...     | no ¬p = no (contraposition f-eq⇒f-manipulate-eq ¬p)
 
-
-x∷xs≡y∷ys⇒x≡y : {n : ℕ} {xs ys : Subset n} {x y : Bool} → (x ∷ xs) ≡ (y ∷ ys) → x ≡ y
-x∷xs≡y∷ys⇒x≡y {n} {xs} {.xs} {x} {.x} refl = refl
-
-x∷xs≡y∷ys⇒xs≡ys : {n : ℕ} {xs ys : Subset n} {x y : Bool} → (x ∷ xs) ≡ (y ∷ ys) → xs ≡ ys
-x∷xs≡y∷ys⇒xs≡ys {n} {xs} {.xs} {x} {.x} refl = refl
+------------------------------------------------------------------------
+-- Decidable subset equality
 
 _≡ˢ?_ : {n : ℕ} → (s s' : Subset n) → Dec (s ≡ s')
 _≡ˢ?_ {zero} [] [] = yes refl
@@ -96,17 +129,5 @@ _≡ˢ?_ {suc n} (x ∷ s) (x₁ ∷ s')
 ...  | yes p | no ¬p' rewrite p = no λ x₂ → contradiction (x∷xs≡y∷ys⇒x≡y x₂) ¬p'
 ...  | no ¬p | _ = no (λ x₂ → contradiction (x∷xs≡y∷ys⇒xs≡ys x₂) ¬p)
 
-empty-subset-outside : {n : ℕ} → (x : Fin n) → ¬ (⊥ [ x ]= inside)
-empty-subset-outside {.(ℕ.suc _)} zero ()
-empty-subset-outside {.(ℕ.suc _)} (Fin.suc x) (there ins) = empty-subset-outside x ins
 
-x∈[l]⇒x≡l : {n : ℕ} {x l : Fin n} → x ∈ ⁅ l ⁆ → x ≡ l
-x∈[l]⇒x≡l {.(ℕ.suc _)} {zero} {zero} ins = refl
-x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {zero} (there ins) = contradiction ins (empty-subset-outside x)
-x∈[l]⇒x≡l {.(ℕ.suc _)} {Fin.suc x} {Fin.suc l} (there ins) = cong Fin.suc (x∈[l]⇒x≡l ins)
 
-l∈L⇒[l]⊆L : {n : ℕ} {l : Fin n} {L : Subset n} → l ∈ L → ⁅ l ⁆ ⊆ L
-l∈L⇒[l]⊆L {n} {l} {L} ins x rewrite (x∈[l]⇒x≡l x) = ins
-
-[l]⊆L⇒l∈L : {n : ℕ} {l : Fin n} {L : Subset n} → ⁅ l ⁆ ⊆ L → l ∈ L 
-[l]⊆L⇒l∈L {n} {l} {L} sub = sub (x∈⁅x⁆ l)
