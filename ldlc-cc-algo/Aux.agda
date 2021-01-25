@@ -1,4 +1,4 @@
-module aux where
+module Aux where
 
 open import Data.Nat
 open import Level renaming (zero to lzero)
@@ -19,7 +19,9 @@ open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
 open import Data.Empty renaming (⊥ to ⊥')
 
-open import Extensionality
+postulate
+  ext : {A : Set}{B : A → Set}{f : (x : A) → B x} {g : (x : A) → B x} →
+    (∀ x → f x ≡ g x) → f ≡ g
 
 sum-eq : {A B : Set} {x y : A} → (inj₁{B = B} x) ≡ (inj₁{B = B} y) → x ≡ y
 sum-eq {A} {B} {x} {.x} refl = refl
