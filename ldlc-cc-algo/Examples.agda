@@ -78,6 +78,27 @@ example-function-f-cast = Cast example-function-f (Pi Dyn ((CaseT (UCast{e = Var
 example-function : proj₁ ([] ∶ App example-function-f-cast (VLab{x = zero}) ⇓) ≡ UnitE
 example-function = refl
 
+-- ⟨ l , (case x of {l : (), l' : LabI l'}) ⟩ ⇓ ⟨⟨ l , () ⟩⟩
+example-product : Exp {2}
+example-product = Prod (LabI zero) (CaseE (UVal (VVar{i = 0})) f)
+
+example-product-result : proj₁ ([] ∶ Prod (LabI zero) (CaseE (UVal (VVar{i = 0})) f) ⇓) ≡ ProdV (VLab{x = zero}) UnitE
+example-product-result = refl
+
+-- let ⟨⟨ x , y ⟩⟩ = ⟨ l' , (case x of {l : (), l' : LabI l'}) ⟩ in (case y of {l : (), l' : (Abs z)}) ⇓ Abs z
+f' : (l : Fin 2) → l ∈ [l,l'] → Exp {2}
+f' zero i = UnitE
+f' (Fin.suc zero) i = Abs (Var 0)
+
+example-product' : Exp {2}
+example-product' = Prod (LabI (Fin.suc zero)) (CaseE (UVal (VVar{i = 0})) f)
+
+example-letp : Exp {2}
+example-letp = LetP example-product' (CaseE (UVal (VVar{i = 0})) f')
+
+example-letp-result : proj₁ ([] ∶ example-letp ⇓) ≡ Abs (Var 0)
+example-letp-result = refl
+
 ------------------------------------------------------------------------
 -- Cast function
 
