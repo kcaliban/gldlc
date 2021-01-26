@@ -22,6 +22,10 @@ open import Relation.Nullary.Sum
 open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality hiding (Extensionality)
 open import Data.Empty renaming (⊥ to ⊥')
+open import Data.Maybe
+open import Data.Maybe.Relation.Unary.All
+open import Data.Maybe.Relation.Unary.Any
+open import Data.Unit
 
 ------------------------------------------------------------------------
 -- Extensionality
@@ -35,6 +39,13 @@ postulate
 
 sum-eq : {A B : Set} {x y : A} → (inj₁{B = B} x) ≡ (inj₁{B = B} y) → x ≡ y
 sum-eq {A} {B} {x} {.x} refl = refl
+
+isnothing⇒¬isjust : {A : Set} {a : Maybe A} → Is-nothing a → ¬ (Is-just a)
+isnothing⇒¬isjust {A} {.nothing} nothing = λ ()
+
+¬isjust⇒isnothing : {A : Set} {a : Maybe A} → ¬ (Is-just a) → Is-nothing a
+¬isjust⇒isnothing {A} {nothing} ju = nothing
+¬isjust⇒isnothing {A} {just x} ju = contradiction (just Data.Unit.tt) ju
 
 ------------------------------------------------------------------------
 -- Various subset properties

@@ -58,6 +58,7 @@ data Ty {n} where
 data TyNf {n} where
   NfDyn : TyNf Dyn
   NfUnit : TyNf UnitT
+  NfBot : TyNf Bot
   NfLabel : {s : Subset n} → TyNf (Label s)
   NfPi : {A B : Ty {n}} {nfA : TyNf A} → TyNf (Pi A B)
   NfSigma : {A B : Ty {n}} {nfA : TyNf A} → TyNf (Sigma A B)
@@ -175,6 +176,7 @@ singleView {n} (Single x T) = single-v
 -- properties, inverse lemmas
 
 TyNf-uniqueness : {n : ℕ} {nA : Ty {n}} → (nf nf' : TyNf nA) → nf ≡ nf'
+TyNf-uniqueness {n} {.(Bot)} NfBot NfBot = refl
 TyNf-uniqueness {n} {.(Dyn {_} {∞})} NfDyn NfDyn = refl
 TyNf-uniqueness {n} {.(UnitT {_} {∞})} NfUnit NfUnit = refl
 TyNf-uniqueness {n} {.(Label {_} {∞} s)} (NfLabel {s = s}) (NfLabel {s = .s}) = refl
@@ -208,7 +210,6 @@ ValU-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast {_} {↑ˡ ∞} e (Dyn {_} {�
 ValU-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast e (Dyn {_} {∞}) G)} (UCast {e = e} {G = G} x x₁) (UCast {e = .e} {G = .G} x₂ x₃) rewrite (TyG-uniqueness x₁ x₃) | (Val-uniqueness x x₂) = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Blame {_} {∞})} UBlame UBlame = refl
 
--- to be removed later
 TyNf-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyNf (Pi A B) → TyNf A
 TyNf-Pi-inv {n} {A} {B} (NfPi{nfA = nfA}) = nfA
 
@@ -231,6 +232,21 @@ Val-Cast-inv {n} {e} {(Pi A° B°)} {(Pi A°° B°°)} (VCastFun{nfA = nfA}{nfA'
 Val-Cast-inv-Pi : {n : ℕ} {e : Exp {n}} {A B A° B° : Ty {n}} → Val (Cast e (Pi A B) (Pi A° B°)) → TyNf A × TyNf A°
 Val-Cast-inv-Pi {n} {e} {A} {B} {A°} {B°} (VCastFun{nfA = nfA}{nfA'} V) = nfA , nfA'
 
+Pi-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Pi A B ≡ Pi A' B' → A ≡ A' × B ≡ B'
+Pi-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
+
+Sigma-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Sigma A B ≡ Sigma A' B' → A ≡ A' × B ≡ B'
+Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
+
+Single-equiv : {n : ℕ} {e e' : Exp {n}} {V : Val e} {V' : Val e'} {A A' : Ty {n}} → Single V A ≡ Single V' A' → e ≡ e' × A ≡ A'
+Single-equiv {n} {e} {.e} {V} {.V} {A} {.A} refl = refl , refl
+
+¬Single-nf : {n : ℕ} {A : Ty {n}} → TyNf A → (∀ e V B → A ≢ Single{n = n}{e = e} V B)
+¬Single-nf {n} {.Dyn} NfDyn = λ e V B → λ ()
+¬Single-nf {n} {.UnitT} NfUnit = λ e V B → λ ()
+¬Single-nf {n} {.(Label _)} NfLabel = λ e V B → λ ()
+¬Single-nf {n} {.(Pi _ _)} NfPi = λ e V B → λ ()
+¬Single-nf {n} {.(Sigma _ _)} NfSigma = λ e V B → λ ()
 
 ------------------------------------------------------------------------
 -- decidable
@@ -268,7 +284,7 @@ TyG? Sigma x x₁
 ...     | no ¬p' = no  λ x₂ → contradiction (proj₁ (TyG-Sigma-inv x₂)) ¬p'  
 TyG? CaseT x f = no λ ()
 
-TyNf? Bot = no λ ()
+TyNf? Bot = yes NfBot
 TyNf? UnitT = yes NfUnit
 TyNf? Dyn = yes NfDyn
 TyNf? Single x T = no λ ()

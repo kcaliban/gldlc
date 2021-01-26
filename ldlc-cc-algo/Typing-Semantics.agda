@@ -321,8 +321,6 @@ data _↠_ {n} where
   β-Single : {A : Ty {n}} {e : Exp {n}} {V : Val e}  → Single V A ↠ A
   β-Case : {l : Fin n} {s : Subset n} {ins : l ∈ s} {f : ∀ l → l ∈ s → Ty {n}} → CaseT (UVal (VLab{x = l})) f ↠ f l ins
   Case-Bot : {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} → CaseT UBlame f ↠ Bot
-  Pi-Bot-L : {B : Ty {n}} → Pi Bot B ↠ Bot
-  Sigma-Bot-L : {B : Ty {n}} → Sigma Bot B ↠ Bot    
 
 data _⇨_ {n} where
   ξ-App : {e₁ e₁' e : Exp {n}} {v : Val e} → e₁ ⇨ e₁' → App e₁ v ⇨ App e₁' v
@@ -331,7 +329,7 @@ data _⇨_ {n} where
   ξ-ProdV : {e e₂ e₂' : Exp {n}} {v : Val e} → e₂ ⇨ e₂' → ProdV v e₂ ⇨ ProdV v e₂'
   ξ-LetP : {e₁ e₁' e₂ : Exp {n}} → e₁ ⇨ e₁' → LetP e₁ e₂ ⇨ LetP e₁' e₂
   ξ-Cast : {e₁ e₂ : Exp {n}} {A B : Ty {n}} → e₁ ⇨ e₂ → Cast e₁ A B ⇨ Cast e₂ A B
-  ξ-Case : {s : Subset n} {e₁ e₂ : Exp {n}} {U : ValU e₁} {U' : ValU e₂} {A B : Ty {n}} {f : ∀ l → l ∈ s → Exp {n}} → e₁ ⇨ e₂ → CaseE U f ⇨ CaseE U' f
+  ξ-Case : {s : Subset n} {e₁ e₂ : Exp {n}} {U : ValU e₁} {U' : ValU e₂} {f : ∀ l → l ∈ s → Exp {n}} → e₁ ⇨ e₂ → CaseE U f ⇨ CaseE U' f
   β-App : {e e' : Exp {n}} → (v : Val e') → (App (Abs e) v) ⇨ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e) ])
   β-Prod : {e e' : Exp {n}} {v : Val e} → Prod e e' ⇨ ProdV v (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
   β-LetE : {e e' : Exp {n}} → (v : Val e) → LetE e e' ⇨ (↑⁻¹[ ([ 0 ↦ ↑ⱽ¹[ v ] ] e') ])
@@ -356,7 +354,7 @@ data _⇨_ {n} where
   Cast-Factor-L : {e : Exp {n}} {v : Val e} {G nA : Ty {n}} {g : TyG G} {nfA : TyNf nA} → ([] ∣ [] ⊢ G ~ nA) → [] ⊢ nA → G ≢ nA → nA ≢ Dyn → Cast e nA Dyn ⇨ Cast (Cast e nA G) G Dyn
   Cast-Factor-R : {e : Exp {n}} {v : Val e} {G nB : Ty {n}} {g : TyG G} {nfB : TyNf nB} → ([] ∣ [] ⊢ G ~ nB) → [] ⊢ nB → G ≢ nB → nB ≢ Dyn → Cast e Dyn nB ⇨ Cast (Cast e Dyn G) G nB
   App-Blame : {e : Exp {n}} {v : Val e} → App Blame v ⇨ Blame
-  LetE-Blame : {e : Exp {n}} {v : Val e} → LetE Blame e ⇨ Blame
+  LetE-Blame : {e : Exp {n}} → LetE Blame e ⇨ Blame
   Prod-Blame : {e : Exp {n}} → Prod Blame e ⇨ Blame
   ProdV-Blame : {e : Exp {n}} {v : Val e} → ProdV v Blame ⇨ Blame
   LetP-Blame : {e  : Exp {n}} → LetP Blame e ⇨ Blame
@@ -394,11 +392,6 @@ val*⇒val {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA = nfA}{nfA' = nfA'} j
 data Result* {n : ℕ} : Exp {n} → Set where
   RValue : {e : Exp {n}} → Val* {n} e → Result* {n} e
   RBlame :  Result* {n} Blame
-
--- Type results
-data ResultT {n : ℕ} : {i : Size} → Ty {n} {i} → Set where
-  RNf : {T : Ty {n}} → TyNf T → ResultT T
-  RBot : ResultT Bot
 
 access : {n : ℕ} {Γ : Env {n}} → (m : ℕ) → All Val* Γ → Σ (Exp {n}) Result*
 access {n} {.[]} m [] = Blame , RBlame
@@ -444,11 +437,11 @@ castreduce {n} {e} V A B = Blame , RBlame
 
 -- Big step semantics for expressions and types, returns Blame/Bot if term/type stuck and not a/in value/nf
 _∶_⇓ : {n : ℕ} {Γ : Env {n}} (venv : All Val* Γ) (e : Exp {n}) → Σ (Exp {n}) Result*
-_∶_⇓ᵀ : {n : ℕ} {Γ : Env {n}} (venv : All Val* Γ) (T : Ty {n}) → Σ (Ty {n}) ResultT
+_∶_⇓ᵀ : {n : ℕ} {Γ : Env {n}} (venv : All Val* Γ) (T : Ty {n}) → Σ (Ty {n}) TyNf
 
 _∶_⇓ {n} {Γ} venv (App{e = e'} (Cast (Abs e) A B) x)
   with venv ∶ A ⇓ᵀ | venv ∶ B ⇓ᵀ | venv ∶ e' ⇓
-...  | (Pi Â B̂) , RNf Nf₁ | (Pi Â' B̂') , RNf Nf₂ | e* , RValue v* = venv ∶ LetE (Cast e' Â' Â) (Cast (App (Abs e) (VVar{i = 0})) B̂ ([ 0 ↦ val*⇒val v* ]ᵀ B̂')) ⇓
+...  | (Pi Â B̂) , NfPi | (Pi Â' B̂') , NfPi | e* , RValue v* = venv ∶ LetE (Cast e' Â' Â) (Cast (App (Abs e) (VVar{i = 0})) B̂ ([ 0 ↦ val*⇒val v* ]ᵀ B̂')) ⇓
 ...  | _ | _ | _ = Blame , RBlame
 _∶_⇓ {n} {Γ} venv (App{e = e'} e x)
   with venv ∶ e ⇓ | venv ∶ e' ⇓
@@ -456,14 +449,14 @@ _∶_⇓ {n} {Γ} venv (App{e = e'} e x)
 ...  | _ | _ = Blame , RBlame
 _∶_⇓ {n} {Γ} venv (Cast (ProdV{e = e} v e') A B)
   with venv ∶ e ⇓ | venv ∶ e' ⇓ | venv ∶ A ⇓ᵀ | venv ∶ B ⇓ᵀ
-...  | (e* , RValue v*) | e** , RValue v** | (Sigma Â B̂) , RNf Nf₁ | (Sigma Â' B̂') , RNf Nf₂ = venv ∶ LetE (Cast e* Â Â') (ProdV (VVar{i = zero}) (Cast e** ([ 0 ↦ val*⇒val v* ]ᵀ B̂) B̂')) ⇓
+...  | (e* , RValue v*) | e** , RValue v** | (Sigma Â B̂) , NfSigma | (Sigma Â' B̂') , NfSigma = venv ∶ LetE (Cast e* Â Â') (ProdV (VVar{i = zero}) (Cast e** ([ 0 ↦ val*⇒val v* ]ᵀ B̂) B̂')) ⇓
 ...  | _ | _ | _ | _ = Blame , RBlame
 _∶_⇓ {n} {Γ} venv (Cast e A B)
   with venv ∶ e ⇓ | venv ∶ A ⇓ᵀ | venv ∶ B ⇓ᵀ
-...  | (e* , RValue val) | Â , RNf NfA | B̂ , RNf NfB = castreduce val Â B̂   -- e* is not a variable
+...  | _ | Bot , NfBot | _ = Blame , RBlame 
+...  | _ | _ | Bot , NfBot = Blame , RBlame 
+...  | (e* , RValue val) | Â , NfA | B̂ , NfB = castreduce val Â B̂
 ...  | Blame , RBlame | _ | _ = Blame , RBlame  
-...  | _ | Bot , RBot | _ = Blame , RBlame 
-...  | _ | _ | Bot , RBot = Blame , RBlame 
 _∶_⇓ {n} {Γ} venv (LetE e e₁)  
   with venv ∶ e ⇓
 ...  | (e' , RValue v) = _∶_⇓{Γ = e' ∷ Γ} (v ∷ venv) e₁
@@ -497,30 +490,25 @@ _∶_⇓ {n} {Γ} venv (LetP e e₁)
 ...  | (ProdV{e = e*} v₁ e₂ , RValue (VProd v₁* v₂*)) = (v₂* ∷ (v₁* ∷ venv)) ∶ e₁ ⇓
 ...  | (e* , v*) = Blame , RBlame
 
-venv ∶ Bot ⇓ᵀ = Bot , RBot
-venv ∶ UnitT ⇓ᵀ = UnitT , (RNf NfUnit)
-venv ∶ Dyn ⇓ᵀ = Dyn , (RNf NfDyn)
-venv ∶ Label x ⇓ᵀ = (Label x) , (RNf NfLabel)
-venv ∶ Single x T ⇓ᵀ
-  with venv ∶ T ⇓ᵀ
-...  | Bot , RBot = Bot , RBot
-...  | T' , RNf NfT' = T' , RNf NfT'
+venv ∶ Bot ⇓ᵀ = Bot , NfBot
+venv ∶ UnitT ⇓ᵀ = UnitT , (NfUnit)
+venv ∶ Dyn ⇓ᵀ = Dyn , (NfDyn)
+venv ∶ Label x ⇓ᵀ = (Label x) , (NfLabel)
+venv ∶ Single x T ⇓ᵀ = venv ∶ T ⇓ᵀ
 venv ∶ Pi T T₁ ⇓ᵀ
   with venv ∶ T ⇓ᵀ
-...  | Bot , RBot = Bot , RBot
-...  | T' , RNf NfT' = (Pi T' T₁) , (RNf (NfPi{nfA = NfT'}))
+...  | T' , NfT' = (Pi T' T₁) , ((NfPi{nfA = NfT'}))
 venv ∶ Sigma T T₁ ⇓ᵀ
   with venv ∶ T ⇓ᵀ
-...  | Bot , RBot = Bot , RBot
-...  | T' , RNf NfT' = (Sigma T' T₁) , (RNf (NfSigma{nfA = NfT'}))  
+...  | T' , NfT' = (Sigma T' T₁) , ((NfSigma{nfA = NfT'}))  
 venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ
   with venv ∶ e ⇓
 ... | (LabI l) , (RValue (VLab{x = .l}))
   with l ∈? s
 ...  | yes ins = venv ∶ (f l ins) ⇓ᵀ
-...  | no ¬ins = Bot , RBot
-venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ | e' , RValue v' = Bot , RBot
-venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ | .Blame , RBlame = Bot , RBot
+...  | no ¬ins = Bot , NfBot
+venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ | e' , RValue v' = Bot , NfBot
+venv ∶ CaseT{s = s}{e = e} x f ⇓ᵀ | .Blame , RBlame = Bot , NfBot
 
 ------------------------------------------------------------------------
 -- Cast function, properties
@@ -711,4 +699,148 @@ cast-trivial-just-inv {n} {CaseT x f} {B} {C} ju
   with B ≡ᵀ? (CaseT x f)
 ...  | yes p = inj₁ (sym p)
 
+cast-result : {n : ℕ} {A' A B : Ty {n}} → Is-just (cast A' A B) → (Data.Maybe.fromMaybe UnitT (cast A' A B) ≡ B) ⊎ (∃[ e ](∃[ V ](Data.Maybe.fromMaybe UnitT (cast A' A B) ≡ Single{e = e} V B)))
+cast-result {n} {Single{e = e} x A'} {Single{e = e'} x₁ A} {B} ju
+  with A' ≡ᵀ? A | e ≡ᵉ? e'
+...  | yes eq | yes eq' = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {Bot} {B} ju
+  with A' ≡ᵀ? Bot | [] ∶ Cast e Bot B ⇓
+...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {UnitT} {B} ju
+  with A' ≡ᵀ? UnitT | [] ∶ Cast e UnitT B ⇓
+...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {Dyn} {B} ju
+  with A' ≡ᵀ? Dyn | [] ∶ Cast e Dyn B ⇓
+...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {Label x₁} {B} ju
+  with A' ≡ᵀ? (Label x₁) | [] ∶ Cast e (Label x₁) B ⇓
+...  | yes eq | fst , RValue v = inj₂ (fst , ((val*⇒val v) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {Pi A A₁} {B} ju
+  with A' ≡ᵀ? (Pi A A₁) | [] ∶ Cast e (Pi A A₁) B ⇓
+...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {Sigma A A₁} {B} ju
+  with A' ≡ᵀ? (Sigma A A₁) | [] ∶ Cast e (Sigma A A₁) B ⇓
+...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Single{e = e} x A'} {CaseT x₁ f} {B} ju
+  with A' ≡ᵀ? (CaseT x₁ f) | [] ∶ Cast e (CaseT x₁ f) B ⇓
+...  | yes eq | fst , RValue v = inj₂ (fst , ((val*⇒val v) , refl))
+...  | yes eq | .Blame , RBlame = inj₁ refl
+cast-result {n} {Bot} {A} {B} ju
+  with A ≡ᵀ? Bot
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {UnitT} {A} {B} ju
+  with A ≡ᵀ? UnitT
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {Dyn} {A} {B} ju
+  with A ≡ᵀ? Dyn
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {Label x} {A} {B} ju
+  with A ≡ᵀ? (Label x)
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {Pi A' A''} {A} {B} ju
+  with A ≡ᵀ? (Pi A' A'')
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {Sigma A' A''} {A} {B} ju
+  with A ≡ᵀ? (Sigma A' A'')
+...  | yes eq rewrite eq = inj₁ refl
+cast-result {n} {CaseT x f} {A} {B} ju
+  with A ≡ᵀ? (CaseT x f)
+...  | yes eq rewrite eq = inj₁ refl
 
+cast-dyn-s : {n : ℕ} {A' A : Ty {n}} {s : Subset n} → Is-just (cast A' A Dyn) → ¬(Data.Maybe.fromMaybe UnitT (cast A' A Dyn) ≡ Label s)
+cast-dyn-s {n} {A'} {A} {s} isj
+  with cast-result {n} {A'} {A} {Dyn} isj
+...  | inj₁ x = λ y → contradiction (≡-trans (sym x) y) λ () 
+...  | inj₂ (fst , snd , thd) = λ y → contradiction (≡-trans (sym thd) y) λ ()
+
+cast-nothing : {n : ℕ} {A B C : Ty {n}} → notSingle A → A ≢ B → Is-nothing (cast A B C)
+cast-nothing {n} {A} {B} {C} (notsingle nope) neq = ¬isjust⇒isnothing ϱ
+  where ϱ : ¬ (Is-just (cast A B C))
+        ϱ x
+          with cast-trivial-just-inv x
+        ...  | inj₁ eq = contradiction eq neq
+        ...  | inj₂ (fst , snd , thd) = contradiction thd (nope fst B snd)
+
+cast-nothing-single : {n : ℕ} {A B C : Ty {n}} {e : Exp {n}} {V : Val e} → A ≢ B → (Single V A) ≢ B → Is-nothing (cast (Single V A) B C)
+cast-nothing-single {n} {A} {B} {C} {e} {V} neq neq' =  ¬isjust⇒isnothing ϱ
+  where ϱ : ¬ Is-just (cast (Single V A) B C)
+        ϱ x
+          with cast-trivial-just-inv{A = Single V A}{B = B}{C = C} x
+        ...  | inj₁ eq = contradiction eq neq'
+        ...  | inj₂ (fst , snd , thd) = contradiction (proj₂ (Single-equiv thd)) neq
+
+------------------------------------------------------------------------
+-- Various properties
+
+-- If two types are in ground form and consistent, then they are equal
+tyg-equal : {n : ℕ} {T T' : Ty {n}} → TyG T → TyG T' → [] ∣ [] ⊢ T ~ T' → T ≡ T'
+tyg-equal {n} {.UnitT} {.UnitT} GUnit GUnit cons = refl
+tyg-equal {n} {.(Label _)} {.(Label _)} GLabel GLabel (AConsRefl x) = refl
+tyg-equal {n} {.(Pi Dyn Dyn)} {.(Pi Dyn Dyn)} GPi GPi cons = refl
+tyg-equal {n} {.(Sigma Dyn Dyn)} {.(Sigma Dyn Dyn)} GSigma GSigma cons = refl
+
+-- Ground types don't reduce
+tyg-noreduce : {n : ℕ} {T : Ty {n}} → TyG T → (∀ T' → ¬ (T ↠ T'))
+tyg-noreduce {n} {.(Pi Dyn Dyn)} GPi .(Pi _ Dyn) (ξ-Pi ())
+tyg-noreduce {n} {.(Sigma Dyn Dyn)} GSigma .(Sigma _ Dyn) (ξ-Sigma ())
+
+-- Types in normal form don't reduce
+tynf-noreduce : {n : ℕ} {T : Ty {n}} → TyNf T → (∀ T' → ¬ (T ↠ T'))
+tynf-noreduce {n} {.(Pi _ _)} (NfPi{nfA = nfA}) .(Pi _ _) (ξ-Pi{A' = A'} r) = contradiction r (tynf-noreduce nfA A')
+tynf-noreduce {n} {.(Sigma _ _)} (NfSigma {nfA = nfA}) .(Sigma _ _) (ξ-Sigma{A' = A'} r) = contradiction r (tynf-noreduce nfA A')
+
+-- Values don't reduce
+val-noreduce : {n : ℕ} {e : Exp {n}} → Val e → (∀ e' → ¬ (e ⇨ e'))
+val-noreduce {n} {.UnitE} VUnit e' = λ ()
+val-noreduce {n} {.(Var _)} VVar e' = λ ()
+val-noreduce {n} {.(LabI _)} VLab e' = λ ()
+val-noreduce {n} {.(Abs _)} VFun e' = λ ()
+val-noreduce {n} {.(ProdV W _)} (VProd W W₁) .(ProdV W _) (ξ-ProdV{e₂' = e₂'} r) = contradiction r (val-noreduce W₁ e₂')
+val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast _ _ Dyn) (ξ-Cast{e₂ = e₂} r) = contradiction r (val-noreduce W e₂)
+val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast _ _ Dyn) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (tyg-noreduce x A')
+val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast (Cast _ _ _) _ Dyn) (Cast-Factor-L{g = g} x₁ x₂ x₃ x₄) = contradiction (tyg-equal g x x₁) x₃
+val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) .(Cast _ (Pi _ _) (Pi _ _)) (ξ-Cast{e₂ = e₂} r) = contradiction r (val-noreduce v e₂)
+val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA = nfA} v) .(Cast _ _ (Pi _ _)) (Cast-Reduce-L{A' = A'} x) = contradiction x (tynf-noreduce (NfPi{nfA = nfA}) A')
+val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA' = nfA'} v) .(Cast _ (Pi _ _) _) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tynf-noreduce (NfPi{nfA = nfA'}) B')
+
+-- ValU closed under reduction
+valu-closed : {n : ℕ} {e e' : Exp {n}} → ValU e → e ⇨ e' → ValU e'
+valu-closed {n} {e} {e'} (UVal v) r = contradiction r (val-noreduce v e')  
+valu-closed {n} {.(Cast (Cast e' (Label _) Dyn) Dyn (Label _))} {e'} (UCast (VCast x x₂) x₁) (Cast-Collapse-Label-Label{v = v} x₃) = UVal v
+valu-closed {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} (UCast (VCast x x₂) x₁) (Cast-Collapse {v = v}) = UVal v
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (UCast x x₁) (Cast-Collide x₂) = UBlame
+valu-closed {n} {.(Cast UnitE Dyn _)} {.(Cast UnitE Dyn _)} (UCast VUnit x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast UnitE Dyn _)} {.(Cast (Cast UnitE Dyn _) _ _)} (UCast VUnit x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) = contradiction (tyg-equal g x₁ x) x₃
+valu-closed {n} {.(Cast (Var _) Dyn _)} {.(Cast (Var _) Dyn _)} (UCast VVar x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (Var _) Dyn _)} {.(Cast (Cast (Var _) Dyn _) _ _)} (UCast VVar x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
+valu-closed {n} {.(Cast (LabI _) Dyn _)} {.(Cast (LabI _) Dyn _)} (UCast VLab x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (LabI _) Dyn _)} {.(Cast (Cast (LabI _) Dyn _) _ _)} (UCast VLab x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
+valu-closed {n} {.(Cast (Abs _) Dyn _)} {.(Cast (Abs _) Dyn _)} (UCast VFun x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (Abs _) Dyn _)} {.(Cast (Cast (Abs _) Dyn _) _ _)} (UCast VFun x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
+valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (ProdV x _) Dyn _)} (UCast (VProd x x₂) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (Cast (ProdV x _) Dyn _) _ _)} (UCast (VProd x x₂) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ Dyn) Dyn _) _ _)} (UCast (VCast x x₂) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃
+valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun x) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
+valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _) _ _)} (UCast (VCastFun x) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃ 
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (Cast-Reduce-L{A' = A'} x₃)) = contradiction x₃ (tyg-noreduce x₂ A')
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ _) _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (Cast-Factor-L{g = g} x₃ x₄ x₅ x₆)) = contradiction (tyg-equal g x₂ x₃) x₅
+valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (ProdV x _) Dyn _)} (UCast (VProd x x₂) x₁) (ξ-Cast (ξ-ProdV{e₂' = e₂'} r)) = contradiction r (val-noreduce x₂ e₂')
+valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (ξ-Cast{e₂ = e₂} r)) = contradiction r (val-noreduce x e₂)
+valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun x) x₁) (ξ-Cast (ξ-Cast{e₂ = e₂} r)) = contradiction r (val-noreduce x e₂)
+valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun{nfA = nfA} x) x₁) (ξ-Cast (Cast-Reduce-L (ξ-Pi{A' = A'} x₂))) = contradiction x₂ (tynf-noreduce nfA A')
+valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun{nfA' = nfA'} x) x₁) (ξ-Cast (Cast-Reduce-R y (ξ-Pi{A' = A'} x₂))) = contradiction x₂ (tynf-noreduce nfA' A')
+
+-- Dyn can't be subtype of Label
+¬dyn-label-sub : {n : ℕ} {s : Subset n} {A : Ty {n}} → [] ⊢ A ≤ᵀ Label s → A ≢ Dyn
+¬dyn-label-sub {n} {s} {.(Label _)} (ASubLabel x) = λ ()
+¬dyn-label-sub {n} {s} {.(Single _ _)} (ASubSingle leq x x₁) = λ ()
+¬dyn-label-sub {n} {s} {.(CaseT _ _)} (ASubCaseLL x x₁ leq) = λ ()
+¬dyn-label-sub {n} {s} {.(CaseT (UVal VVar) _)} (ASubCaseXL leq x) = λ ()
+¬dyn-label-sub {n} {s} {.(CaseT (UCast VVar GLabel) _)} (ASubCaseXLDyn x) = λ ()

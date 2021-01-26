@@ -69,6 +69,7 @@ shift-tyg {n} {d} {c} {.(Label _)} GLabel = GLabel
 shift-tyg {n} {d} {c} {.(Pi Dyn Dyn)} GPi = GPi
 shift-tyg {n} {d} {c} {.(Sigma Dyn Dyn)} GSigma = GSigma
 
+shift-tynf {n} {d} {c} {.Bot} NfBot = NfBot
 shift-tynf {n} {d} {c} {.Dyn} NfDyn = NfDyn
 shift-tynf {n} {d} {c} {.UnitT} NfUnit = NfUnit
 shift-tynf {n} {d} {c} {.(Label _)} NfLabel = NfLabel
@@ -141,6 +142,7 @@ sub-tyg {n} {k} {.(Label _)} {e} {v} GLabel = GLabel
 sub-tyg {n} {k} {.(Pi Dyn Dyn)} {e} {v} GPi = GPi
 sub-tyg {n} {k} {.(Sigma Dyn Dyn)} {e} {v} GSigma = GSigma
 
+sub-tynf {n} {k} {.Bot} {e} {v} NfBot = NfBot
 sub-tynf {n} {k} {.Dyn} {e} {v} NfDyn = NfDyn
 sub-tynf {n} {k} {.UnitT} {e} {v} NfUnit = NfUnit
 sub-tynf {n} {k} {.(Label _)} {e} {v} NfLabel = NfLabel

@@ -7,9 +7,7 @@ module Progress where
 open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
 open import Data.Nat.Properties renaming (_<?_ to _<ᴺ?_)
 open import Data.Integer renaming (_+_ to _+ᶻ_ ; _≤_ to _≤ᶻ_ ; _≥_ to _≥ᶻ_ ; _<_ to _<ᶻ_ ; _>_ to _>ᶻ_ ; ∣_∣ to ∣_∣ᴺ)
-open import Data.Integer.Properties using (⊖-≥ ; 0≤n⇒+∣n∣≡n ; +-monoˡ-≤)
 open import Data.Fin hiding (cast)
-open import Data.Fin.Properties
 open import Data.Fin.Subset renaming (∣_∣ to ∣_∣ˢ ; ⊤ to ⊤ˢ ; ⊥ to ⊥ˢ)
 open import Data.Fin.Subset.Properties
 open import Data.List hiding (_++_ ; length)
@@ -56,187 +54,18 @@ env-empty-++ : {n : ℕ} {Γ' Γ : TEnv {n}} {D : Ty {n}} → ¬ ([] ≡ Γ' ++ 
 env-empty-++ {n} {Γ} {Γ'} {D} eq = contradiction (env-len-eq eq) (Data.Nat.Properties.<⇒≢ (env-len->-++ (env-len->{T = D})))
 
 ------------------------------------------------------------------------
--- Lemmas
+-- Lemmas for cast case in progress
 
----- Required since the function definition skips a lot of cases and Agda can't figure out what's going on
-cast-result : {n : ℕ} {A' A B : Ty {n}} → Is-just (cast A' A B) → (Data.Maybe.fromMaybe UnitT (cast A' A B) ≡ B) ⊎ (∃[ e ](∃[ V ](Data.Maybe.fromMaybe UnitT (cast A' A B) ≡ Single{e = e} V B)))
-
-cast-result {n} {Single{e = e} x A'} {Single{e = e'} x₁ A} {B} ju
-  with A' ≡ᵀ? A | e ≡ᵉ? e'
-...  | yes eq | yes eq' = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {Bot} {B} ju
-  with A' ≡ᵀ? Bot | [] ∶ Cast e Bot B ⇓
-...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {UnitT} {B} ju
-  with A' ≡ᵀ? UnitT | [] ∶ Cast e UnitT B ⇓
-...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {Dyn} {B} ju
-  with A' ≡ᵀ? Dyn | [] ∶ Cast e Dyn B ⇓
-...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {Label x₁} {B} ju
-  with A' ≡ᵀ? (Label x₁) | [] ∶ Cast e (Label x₁) B ⇓
-...  | yes eq | fst , RValue v = inj₂ (fst , ((val*⇒val v) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {Pi A A₁} {B} ju
-  with A' ≡ᵀ? (Pi A A₁) | [] ∶ Cast e (Pi A A₁) B ⇓
-...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {Sigma A A₁} {B} ju
-  with A' ≡ᵀ? (Sigma A A₁) | [] ∶ Cast e (Sigma A A₁) B ⇓
-...  | yes eq | fst , RValue x₁ = inj₂ (fst , ((val*⇒val x₁) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Single{e = e} x A'} {CaseT x₁ f} {B} ju
-  with A' ≡ᵀ? (CaseT x₁ f) | [] ∶ Cast e (CaseT x₁ f) B ⇓
-...  | yes eq | fst , RValue v = inj₂ (fst , ((val*⇒val v) , refl))
-...  | yes eq | .Blame , RBlame = inj₁ refl
-cast-result {n} {Bot} {A} {B} ju
-  with A ≡ᵀ? Bot
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {UnitT} {A} {B} ju
-  with A ≡ᵀ? UnitT
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {Dyn} {A} {B} ju
-  with A ≡ᵀ? Dyn
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {Label x} {A} {B} ju
-  with A ≡ᵀ? (Label x)
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {Pi A' A''} {A} {B} ju
-  with A ≡ᵀ? (Pi A' A'')
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {Sigma A' A''} {A} {B} ju
-  with A ≡ᵀ? (Sigma A' A'')
-...  | yes eq rewrite eq = inj₁ refl
-cast-result {n} {CaseT x f} {A} {B} ju
-  with A ≡ᵀ? (CaseT x f)
-...  | yes eq rewrite eq = inj₁ refl
-
-Pi-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Pi A B ≡ Pi A' B' → A ≡ A' × B ≡ B'
-Pi-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
-
-Sigma-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Sigma A B ≡ Sigma A' B' → A ≡ A' × B ≡ B'
-Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
-
-Single-equiv : {n : ℕ} {e e' : Exp {n}} {V : Val e} {V' : Val e'} {A A' : Ty {n}} → Single V A ≡ Single V' A' → e ≡ e' × A ≡ A'
-Single-equiv {n} {e} {.e} {V} {.V} {A} {.A} refl = refl , refl
-
-cast-dyn-s : {n : ℕ} {A' A : Ty {n}} {s : Subset n} → Is-just (cast A' A Dyn) → ¬(Data.Maybe.fromMaybe UnitT (cast A' A Dyn) ≡ Label s)
-cast-dyn-s {n} {A'} {A} {s} isj
-  with cast-result {n} {A'} {A} {Dyn} isj
-...  | inj₁ x = λ y → contradiction (≡-trans (sym x) y) λ () 
-...  | inj₂ (fst , snd , thd) = λ y → contradiction (≡-trans (sym thd) y) λ ()
-
-isnothing⇒¬isjust : {A : Set} {a : Maybe A} → Is-nothing a → ¬ (Is-just a)
-isnothing⇒¬isjust {A} {.nothing} nothing = λ ()
-
-¬isjust⇒isnothing : {A : Set} {a : Maybe A} → ¬ (Is-just a) → Is-nothing a
-¬isjust⇒isnothing {A} {nothing} ju = nothing
-¬isjust⇒isnothing {A} {just x} ju = contradiction (just Data.Unit.tt) ju
-
-cast-nothing : {n : ℕ} {A B C : Ty {n}} → notSingle A → A ≢ B → Is-nothing (cast A B C)
-cast-nothing {n} {A} {B} {C} (notsingle nope) neq = ¬isjust⇒isnothing ϱ
-  where ϱ : ¬ (Is-just (cast A B C))
-        ϱ x
-          with cast-trivial-just-inv x
-        ...  | inj₁ eq = contradiction eq neq
-        ...  | inj₂ (fst , snd , thd) = contradiction thd (nope fst B snd)
-
-cast-nothing-single : {n : ℕ} {A B C : Ty {n}} {e : Exp {n}} {V : Val e} → A ≢ B → (Single V A) ≢ B → Is-nothing (cast (Single V A) B C)
-cast-nothing-single {n} {A} {B} {C} {e} {V} neq neq' =  ¬isjust⇒isnothing ϱ
-  where ϱ : ¬ Is-just (cast (Single V A) B C)
-        ϱ x
-          with cast-trivial-just-inv{A = Single V A}{B = B}{C = C} x
-        ...  | inj₁ eq = contradiction eq neq'
-        ...  | inj₂ (fst , snd , thd) = contradiction (proj₂ (Single-equiv thd)) neq
-
-
--- If two types are in ground form and consistent, then they are equal
-tyg-equal : {n : ℕ} {T T' : Ty {n}} → TyG T → TyG T' → [] ∣ [] ⊢ T ~ T' → T ≡ T'
-tyg-equal {n} {.UnitT} {.UnitT} GUnit GUnit cons = refl
-tyg-equal {n} {.(Label _)} {.(Label _)} GLabel GLabel (AConsRefl x) = refl
--- if S{l : L} is ground type, then L ~ S{l : L} and this and consequently val-noreduce don't hold
--- tyg-equal {n} {.(Label _)} {.(Single VLab (Label _))} GLabel GSingle cons = {!!}
-tyg-equal {n} {.(Pi Dyn Dyn)} {.(Pi Dyn Dyn)} GPi GPi cons = refl
-tyg-equal {n} {.(Sigma Dyn Dyn)} {.(Sigma Dyn Dyn)} GSigma GSigma cons = refl
-
--- Ground types don't reduce
-tyg-noreduce : {n : ℕ} {T : Ty {n}} → TyG T → (∀ T' → ¬ (T ↠ T'))
-tyg-noreduce {n} {.(Pi Dyn Dyn)} GPi .(Pi _ Dyn) (ξ-Pi ())
-tyg-noreduce {n} {.(Sigma Dyn Dyn)} GSigma .(Sigma _ Dyn) (ξ-Sigma ())
-
--- Types in normal form don't reduce
-tynf-noreduce : {n : ℕ} {T : Ty {n}} → TyNf T → (∀ T' → ¬ (T ↠ T'))
-tynf-noreduce {n} {.(Pi _ _)} (NfPi{nfA = nfA}) .(Pi _ _) (ξ-Pi{A' = A'} r) = contradiction r (tynf-noreduce nfA A')
-tynf-noreduce {n} {.(Sigma _ _)} (NfSigma {nfA = nfA}) .(Sigma _ _) (ξ-Sigma{A' = A'} r) = contradiction r (tynf-noreduce nfA A')
-
--- Values don't reduce
-val-noreduce : {n : ℕ} {e : Exp {n}} → Val e → (∀ e' → ¬ (e ⇨ e'))
-val-noreduce {n} {.UnitE} VUnit e' = λ ()
-val-noreduce {n} {.(Var _)} VVar e' = λ ()
-val-noreduce {n} {.(LabI _)} VLab e' = λ ()
-val-noreduce {n} {.(Abs _)} VFun e' = λ ()
-val-noreduce {n} {.(ProdV W _)} (VProd W W₁) .(ProdV W _) (ξ-ProdV{e₂' = e₂'} r) = contradiction r (val-noreduce W₁ e₂')
-val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast _ _ Dyn) (ξ-Cast{e₂ = e₂} r) = contradiction r (val-noreduce W e₂)
-val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast _ _ Dyn) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (tyg-noreduce x A')
-val-noreduce {n} {.(Cast _ _ Dyn)} (VCast W x) .(Cast (Cast _ _ _) _ Dyn) (Cast-Factor-L{g = g} x₁ x₂ x₃ x₄) = contradiction (tyg-equal g x x₁) x₃
-val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) .(Cast _ (Pi _ _) (Pi _ _)) (ξ-Cast{e₂ = e₂} r) = contradiction r (val-noreduce v e₂)
-val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA = nfA} v) .(Cast _ _ (Pi _ _)) (Cast-Reduce-L{A' = A'} x) = contradiction x (tynf-noreduce (NfPi{nfA = nfA}) A')
-val-noreduce {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA' = nfA'} v) .(Cast _ (Pi _ _) _) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tynf-noreduce (NfPi{nfA = nfA'}) B')
-
--- ValU closed under reduction
-valu-closed : {n : ℕ} {e e' : Exp {n}} → ValU e → e ⇨ e' → ValU e'
-valu-closed {n} {e} {e'} (UVal v) r = contradiction r (val-noreduce v e')  
-valu-closed {n} {.(Cast (Cast e' (Label _) Dyn) Dyn (Label _))} {e'} (UCast (VCast x x₂) x₁) (Cast-Collapse-Label-Label{v = v} x₃) = UVal v
-valu-closed {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} (UCast (VCast x x₂) x₁) (Cast-Collapse {v = v}) = UVal v
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (UCast x x₁) (Cast-Collide x₂) = UBlame
-valu-closed {n} {.(Cast UnitE Dyn _)} {.(Cast UnitE Dyn _)} (UCast VUnit x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast UnitE Dyn _)} {.(Cast (Cast UnitE Dyn _) _ _)} (UCast VUnit x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) = contradiction (tyg-equal g x₁ x) x₃
-valu-closed {n} {.(Cast (Var _) Dyn _)} {.(Cast (Var _) Dyn _)} (UCast VVar x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (Var _) Dyn _)} {.(Cast (Cast (Var _) Dyn _) _ _)} (UCast VVar x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
-valu-closed {n} {.(Cast (LabI _) Dyn _)} {.(Cast (LabI _) Dyn _)} (UCast VLab x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (LabI _) Dyn _)} {.(Cast (Cast (LabI _) Dyn _) _ _)} (UCast VLab x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
-valu-closed {n} {.(Cast (Abs _) Dyn _)} {.(Cast (Abs _) Dyn _)} (UCast VFun x₁) (Cast-Reduce-R{B' = B'} y x) = contradiction x (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (Abs _) Dyn _)} {.(Cast (Cast (Abs _) Dyn _) _ _)} (UCast VFun x₁) (Cast-Factor-R{g = g} x x₂ x₃ x₄) =  contradiction (tyg-equal g x₁ x) x₃
-valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (ProdV x _) Dyn _)} (UCast (VProd x x₂) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (Cast (ProdV x _) Dyn _) _ _)} (UCast (VProd x x₂) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ Dyn) Dyn _) _ _)} (UCast (VCast x x₂) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃
-valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun x) x₁) (Cast-Reduce-R{B' = B'} y x') = contradiction x' (tyg-noreduce x₁ B')
-valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _) _ _)} (UCast (VCastFun x) x₁) (Cast-Factor-R{g = g} x' x₂' x₃ x₄) =  contradiction (tyg-equal g x₁ x') x₃ 
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (Cast-Reduce-L{A' = A'} x₃)) = contradiction x₃ (tyg-noreduce x₂ A')
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ _) _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (Cast-Factor-L{g = g} x₃ x₄ x₅ x₆)) = contradiction (tyg-equal g x₂ x₃) x₅
-valu-closed {n} {.(Cast (ProdV x _) Dyn _)} {.(Cast (ProdV x _) Dyn _)} (UCast (VProd x x₂) x₁) (ξ-Cast (ξ-ProdV{e₂' = e₂'} r)) = contradiction r (val-noreduce x₂ e₂')
-valu-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} (UCast (VCast x x₂) x₁) (ξ-Cast (ξ-Cast{e₂ = e₂} r)) = contradiction r (val-noreduce x e₂)
-valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun x) x₁) (ξ-Cast (ξ-Cast{e₂ = e₂} r)) = contradiction r (val-noreduce x e₂)
-valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun{nfA = nfA} x) x₁) (ξ-Cast (Cast-Reduce-L (ξ-Pi{A' = A'} x₂))) = contradiction x₂ (tynf-noreduce nfA A')
-valu-closed {n} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} {.(Cast (Cast _ (Pi _ _) (Pi _ _)) Dyn _)} (UCast (VCastFun{nfA' = nfA'} x) x₁) (ξ-Cast (Cast-Reduce-R y (ξ-Pi{A' = A'} x₂))) = contradiction x₂ (tynf-noreduce nfA' A')  
-
-¬Single-nf : {n : ℕ} {A : Ty {n}} → TyNf A → (∀ e V B → A ≢ Single{n = n}{e = e} V B)
-¬Single-nf {n} {.Dyn} NfDyn = λ e V B → λ ()
-¬Single-nf {n} {.UnitT} NfUnit = λ e V B → λ ()
-¬Single-nf {n} {.(Label _)} NfLabel = λ e V B → λ ()
-¬Single-nf {n} {.(Pi _ _)} NfPi = λ e V B → λ ()
-¬Single-nf {n} {.(Sigma _ _)} NfSigma = λ e V B → λ ()
-
-¬dyn-label-sub : {n : ℕ} {s : Subset n} {A : Ty {n}} → [] ⊢ A ≤ᵀ Label s → A ≢ Dyn
-¬dyn-label-sub {n} {s} {.(Label _)} (ASubLabel x) = λ ()
-¬dyn-label-sub {n} {s} {.(Single _ _)} (ASubSingle leq x x₁) = λ ()
-¬dyn-label-sub {n} {s} {.(CaseT _ _)} (ASubCaseLL x x₁ leq) = λ ()
-¬dyn-label-sub {n} {s} {.(CaseT (UVal VVar) _)} (ASubCaseXL leq x) = λ ()
-¬dyn-label-sub {n} {s} {.(CaseT (UCast VVar GLabel) _)} (ASubCaseXLDyn x) = λ ()
-
--- Lemmas required for Cast case
 -- Type that is in normal form but not ground type
 data nf-not-g {n : ℕ} : Ty {n} → Set where
   dyn : nf-not-g Dyn
+  bot : nf-not-g Bot
   pi : {A B : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) ⊎ ¬ (B ≡ Dyn) → nf-not-g (Pi A B)
   sigma : {A B : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) ⊎ ¬ (B ≡ Dyn) → nf-not-g (Sigma A B)
 
 -- types that are nf but not ground
 cast-lemma-1 : {n : ℕ} {T : Ty {n}} → TyNf T → ¬ (TyG T) → nf-not-g T
+cast-lemma-1 {n} {.Bot} NfBot ntyg = bot
 cast-lemma-1 {n} {.UnitT} NfUnit ntyg = contradiction GUnit ntyg
 cast-lemma-1 {n} {.(Label _)} NfLabel ntyg = contradiction GLabel ntyg
 cast-lemma-1 {n} {.Dyn} NfDyn ntyg = dyn  
@@ -285,21 +114,23 @@ cast-lemma-4 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = P
 cast-lemma-4 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = CaseT x₃ f} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = CaseT x₃ f} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
 
 -- Produce ground type for normal form
-cast-lemma-5 : {n : ℕ} {A : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A))
-cast-lemma-5 {n} {.Dyn} NfDyn neq j = contradiction refl neq
-cast-lemma-5 {n} {.UnitT} NfUnit neq j = UnitT , (GUnit , (AConsRefl empty))
-cast-lemma-5 {n} {(Label s)} NfLabel neq j = Label s , GLabel , (AConsRefl empty)
-cast-lemma-5 {n} {Pi A B} (NfPi {nfA = nfA}) neq (PiF j j₁) = (Pi Dyn Dyn) , (GPi , (AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
-cast-lemma-5 {n} {(Sigma A B)} (NfSigma{nfA = nfA}) neq (SigmaF j j₁) = (Sigma Dyn Dyn) , (GSigma , (AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
+cast-lemma-5 : {n : ℕ} {A : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) → ¬ (A ≡ Bot) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A))
+cast-lemma-5 {n} {.Bot} NfBot neq neq' j = contradiction refl neq'
+cast-lemma-5 {n} {.Dyn} NfDyn neq neq' j = contradiction refl neq
+cast-lemma-5 {n} {.UnitT} NfUnit neq neq' j = UnitT , (GUnit , (AConsRefl empty))
+cast-lemma-5 {n} {(Label s)} NfLabel neq neq' j = Label s , GLabel , (AConsRefl empty)
+cast-lemma-5 {n} {Pi A B} (NfPi {nfA = nfA}) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , (AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
+cast-lemma-5 {n} {(Sigma A B)} (NfSigma{nfA = nfA}) neq neq' (SigmaF j j₁) = (Sigma Dyn Dyn) , (GSigma , (AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
 
 -- Produce ground type for normal form but non-ground type
-cast-lemma-5-1 : {n : ℕ} {A : Ty {n}} → nf-not-g A → ¬ (A ≡ Dyn) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A) × ¬ (G ≡ A))
-cast-lemma-5-1 {n} {.Dyn} dyn neq j = contradiction refl neq
-cast-lemma-5-1 {n} {.(Pi _ _)} (pi x (inj₁ y)) neq (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₁ (Pi-equiv (sym x₁))) y))
-cast-lemma-5-1 {n} {.(Pi _ _)} (pi x (inj₂ y)) neq (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₂ (Pi-equiv (sym x₁))) y)) 
-cast-lemma-5-1 {n} {.(Sigma _ _)} (sigma x (inj₁ y)) neq (SigmaF j j₁)
+cast-lemma-5-1 : {n : ℕ} {A : Ty {n}} → nf-not-g A → ¬ (A ≡ Dyn) → ¬ (A ≡ Bot) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A) × ¬ (G ≡ A))
+cast-lemma-5-1 {n} {.Bot} bot neq neq' j = contradiction refl neq'
+cast-lemma-5-1 {n} {.Dyn} dyn neq neq' j = contradiction refl neq
+cast-lemma-5-1 {n} {.(Pi _ _)} (pi x (inj₁ y)) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₁ (Pi-equiv (sym x₁))) y))
+cast-lemma-5-1 {n} {.(Pi _ _)} (pi x (inj₂ y)) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₂ (Pi-equiv (sym x₁))) y)) 
+cast-lemma-5-1 {n} {.(Sigma _ _)} (sigma x (inj₁ y)) neq neq' (SigmaF j j₁)
   = (Sigma Dyn Dyn) , (GSigma , ((AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₁ (Sigma-equiv (sym x₁))) y))
-cast-lemma-5-1 {n} {.(Sigma _ _)} (sigma x (inj₂ y)) neq (SigmaF j j₁)
+cast-lemma-5-1 {n} {.(Sigma _ _)} (sigma x (inj₂ y)) neq neq' (SigmaF j j₁)
   = (Sigma Dyn Dyn) , (GSigma , ((AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₂ (Sigma-equiv (sym x₁))) y))
 
 -- (V : G => *) ▷ A means A either Dyn or Single _ Dyn
@@ -310,7 +141,9 @@ cast-lemma-6 {n} {e} {A} {B} {C} V (CastA{A' = A'} j x x₁ x₂)
 ... | inj₁ x₃ = inj₁ (≡-trans (sym x₂) x₃)
 ... | inj₂ (fst , fst₁ , snd) = inj₂ (fst , (fst₁ , (≡-trans (sym x₂) snd)))
 
+------------------------------------------------------------------------
 -- Canonical forms
+
 cf-label◁ : {n : ℕ} {s : Subset n} {e : Exp {n}} → [] ⊢ e ◁ Label s → Val e → ∃[ l ]((e ≡ LabI l) × l ∈ s)
 cf-label◁ {n} {s} {.(LabI l)} (SubTypeA (LabAI {l = l} x) (ASubSingle (ASubLabel x₃) x₁ x₂)) VLab = (l , (refl , ([l]⊆L⇒l∈L x₃)))
 
@@ -443,15 +276,16 @@ cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} (CastA{A =
 cf-sigma-⇓ {n} {e} {.(CaseT (UVal VVar) _)} {_} {.(CaseT (UVal VVar) _)} j (AUCaseX-S {eq = eq} x x₁) v = contradiction eq env-empty-++
 cf-sigma-⇓ {n} {e} {.(CaseT (UCast VVar GLabel) _)} {_} {.(CaseT (UCast VVar GLabel) _)} j (AUCaseXDyn-S {eq = eq} x) v = contradiction eq env-empty-++ 
 
+------------------------------------------------------------------------
+-- Progress
+
 data Result {n : ℕ} : Exp {n} → Set where
   RValue : {e : Exp {n}} → Val {n} e → Result {n} e
   RBlame :  Result {n} Blame
 
-{-
--- Main theorem
 data Progress-Type {n : ℕ} (A : Ty {n}) {j : [] ⊢ A} : Set where
   step : {A' : Ty {n}} → A ↠ A' → Progress-Type A
-  result : ResultT A → Progress-Type A
+  result : TyNf A → Progress-Type A
 
 data Progress {n : ℕ} (e : Exp {n}) {T : Ty} {j : [] ⊢ e ▷ T} : Set where
   step : {e' : Exp{n}} → e ⇨ e' → Progress e
@@ -460,20 +294,18 @@ data Progress {n : ℕ} (e : Exp {n}) {T : Ty} {j : [] ⊢ e ▷ T} : Set where
 progress-types : {n : ℕ} {A : Ty {n}} → (j : [] ⊢ A) → Progress-Type A {j}
 progress : {n : ℕ} {e : Exp {n}} {T : Ty} → (j : [] ⊢ e ▷ T) → Progress e {T} {j}
 
-progress-types {n} {.Dyn} (DynF x) = result (RNf NfDyn)
-progress-types {n} {.UnitT} (UnitF x) = result (RNf NfUnit)
-progress-types {n} {.Bot} (BotF x) = result RBot
-progress-types {n} {.(Label _)} (LabF x) = result (RNf NfLabel)
+progress-types {n} {.Dyn} (DynF x) = result (NfDyn)
+progress-types {n} {.UnitT} (UnitF x) = result (NfUnit)
+progress-types {n} {.Bot} (BotF x) = result NfBot
+progress-types {n} {.(Label _)} (LabF x) = result (NfLabel)
 progress-types {n} {.(Pi _ _)} (PiF j j₁)
   with progress-types {n} j
 ...  | step x = step (ξ-Pi x)
-...  | result (RNf x) = result (RNf (NfPi{nfA = x}))
-...  | result RBot = step Pi-Bot-L
+...  | result x = result ((NfPi{nfA = x}))
 progress-types {n} {.(Sigma _ _)} (SigmaF j j₁)
   with progress-types {n} j
 ...  | step x = step (ξ-Sigma x)
-...  | result (RNf x) = result (RNf (NfSigma{nfA = x}))
-...  | result RBot = step Sigma-Bot-L  
+...  | result x = result ((NfSigma{nfA = x})) 
 progress-types {n} {.(Single _ _)} (SingleF x x₁ x₂) = step β-Single
 progress-types {n} {(CaseT U f)} (CaseF (SubTypeA j leq))
   with progress j
@@ -501,15 +333,15 @@ progress {n} {CaseE (UCast{e = e} x₁ x₂) f} {T} (LabAEl j x j₁)
   with castView e
 progress {n} {CaseE (UCast{e = Cast e₁ G Dyn}{G = H} (VCast V g) x₂) f} {T} (LabAEl j x j₁) | cast-v
   with G ≡ᵀ? H
-...  | yes eq rewrite eq = step (ξ-Case Cast-Collapse)
-...  | no ¬eq = step (ξ-Case (Cast-Collide ¬eq))
+...  | yes eq rewrite eq = step (ξ-Case {U' = UVal V} (Cast-Collapse{v = V}{g = g}))
+...  | no ¬eq = step (ξ-Case {U' = UBlame} (Cast-Collide{v = V}{g = g}{h = x₂} ¬eq))
 progress {n} {CaseE (UCast {_} (VCastFun v) x₂) f} {T} (LabAEl (CastA{A = Dyn}{B = G}{A' = A'} (CastA{A = Pi nA B}{B = Pi nA' B'}{A' = A''} j x₅ x₆ x₇) x₁ x₃ x₄) x j₁) | cast-v
   with cast-result{A' = A''}{A = (Pi nA B)}{B = (Pi nA' B')} x₆
 ...  | inj₁ eq = contradiction x₃ (isnothing⇒¬isjust (cast-nothing{A = A'}{B = Dyn}{C = G} (notsingle λ e₁ B₁ W x₈ → contradiction (≡-trans (sym (≡-trans (sym x₇) eq)) x₈) (λ ()))
                                                                                                       λ x₈ → contradiction (≡-trans (sym (≡-trans (sym x₇) eq)) x₈) (λ ())))
 ...  | inj₂ (fst , snd , thd)
      with (sym (≡-trans (sym thd) x₇))
-...     | eq' rewrite eq' = contradiction x₃ (isnothing⇒¬isjust (cast-nothing-single{A = Pi nA' B'}{B = Dyn}{C = G} (λ ()) (λ ())))
+...     | eq' rewrite eq' = contradiction x₃ (isnothing⇒¬isjust (cast-nothing-single{A = Pi nA' B'}{B = Dyn}{C = G}{e = fst}{V = snd} (λ ()) (λ ())))
 progress {n} {CaseE (UCast {e = e} x₁ x₂) f} {T} (LabAEl j x j₁) | (other-v{neq = neq}) = contradiction j (cast-lemma-3 neq x₁ x₂)
 
 progress {n} {App N M} {.([ 0 ↦ M ]ᵀ _)} (PiAE j x (SubTypeA x₁ x₃) x₂)
@@ -519,7 +351,9 @@ progress {n} {App N M} {.([ 0 ↦ M ]ᵀ _)} (PiAE j x (SubTypeA x₁ x₃) x₂
 ...  | result (RValue v)
      with cf-pi-⇓ {n} {N} j x v
 ...     | inj₁ (fst , snd) rewrite snd = step (β-App M)
-...     | inj₂ (fst , snd , thd , fth) rewrite fth = step Cast-Func
+...     | inj₂ (fst , snd , thd , fth) rewrite fth
+        with v
+...        | (VCastFun v*) = step (Cast-Func{v = v*})
 progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁)
   with progress {n} {N} j
 ...  | step r = step (ξ-LetP r)
@@ -539,7 +373,7 @@ progress {n} {Blame} {T} (BlameA x) = result RBlame
 progress {n} {(LetE M N)} {T} (Let x j j₁)
   with progress {n} {M} j
 ...  | step r = step (ξ-LetE r)
-...  | result RBlame = step LetE-Blame
+...  | result RBlame = step (LetE-Blame)
 ...  | result (RValue V) = step (β-LetE V)
 progress {n} {(ProdV V N)} {.(Sigma _ _)} (PairAI j j₁)
   with progress {n} {N} j₁
@@ -547,7 +381,6 @@ progress {n} {(ProdV V N)} {.(Sigma _ _)} (PairAI j j₁)
 ...  | result RBlame = step ProdV-Blame
 ...  | result (RValue W) = result (RValue (VProd V W))
 progress {n} {.(Abs _)} {.(Pi _ _)} (PiAI j) = result (RValue VFun)
--- progress {n} {.Bot} {T} (BotA x) = result (RValue VBot)
 progress {n} {.UnitE} {.UnitT} (UnitAI x) = result (RValue VUnit)
 progress {n} {.(LabI _)} {.(Single VLab (Label ⁅ _ ⁆))} (LabAI x) = result (RValue VLab)
 progress {n} {Prod N M} {.(Sigma _ _)} (SigmaAI (SubTypeA x x₁) j)
@@ -567,172 +400,310 @@ progress {n} {.(CaseE (UCast VVar GLabel) _)} {.(CaseT (UCast VVar GLabel) _)} (
 -----------------------------------------  Cast  -----------------------------------------------
 ------------------------------------------------------------------------------------------------
 
+------------------------------------------------------------------------------------------------
+-- Congruence rules
 progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok'} j x x₁ y)
   with  progress{e = e} j | progress-types ok | progress-types ok'
 ...  | step r | _ | _ = step (ξ-Cast r)
 ...  | result RBlame | _ | _ = step Cast-Blame
 ...  | result (RValue W) | step r | _ = step (Cast-Reduce-L{v = W} r)
-...  | result (RValue W) | result (RNf nf) | step r = step (Cast-Reduce-R{v = W} nf r)
-...  | result (RValue W) | result RBot | _ = step Cast-Bot-L
-...  | result (RValue W) | result (RNf nf) | result RBot = step (Cast-Bot-R nf)
-progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB)
+...  | result (RValue W) | result (NfBot) | _ = step Cast-Bot-L
+...  | result (RValue W) | result (nf) | step r = step (Cast-Reduce-R{v = W} nf r)
+...  | result (RValue W) | result (nf) | result (NfBot) = step (Cast-Bot-R nf)
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB)
   with castView e
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn}
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+---- A = Dyn
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn}
   with A ≡ᵀ? Dyn 
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq
   rewrite eq
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+---- A = Dyn
+------ TyG B
   with TyG? B
 ...  | yes tyg
+-------- (V : G => *) : * => H --> V or Blame
      with G₁ ≡ᵀ? B
 ...     | yes eq' rewrite eq' = step (Cast-Collapse{v = W}{g = x₂})
-...     | no ¬eq' = step (Cast-Collide{v = W} ¬eq')
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg
+...     | no ¬eq' = step (Cast-Collide{v = W}{g = x₂}{h = tyg} ¬eq')
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+---- A = Dyn
+------ ¬ TyG B
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg
   with cast-lemma-1 {n} {B} nfB ¬tyg
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | dyn = step (Cast-Dyn{v =(VCast W x₂)})
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | pi z z'
-  with cast-lemma-5-1 {n} {B} (pi z z') (λ ()) ok'
-...  | fst , snd , thd , fth = step (Cast-Factor-R{v = (VCast W x₂)}{g = snd}{nfB = nfB} thd ok' fth (λ ()))    
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | sigma z z'
-  with cast-lemma-5-1 {n} {B} (sigma z z') (λ ()) ok'
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+---- A = Dyn
+------ ¬ TyG B (and Nf B)
+-------- B = Dyn
+---------- (V : G => *) : * => * --> (V : G => *)
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | dyn = step (Cast-Dyn{v =(VCast W x₂)})
+-------- B = Pi A B
+---------- (V : G => *) : * => Pi A B --> ((V : G => *) : * => G') : G' => Pi A B
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | pi z z'
+  with cast-lemma-5-1 {n} {B} (pi z z') (λ ()) (λ ()) ok'
 ...  | fst , snd , thd , fth = step (Cast-Factor-R{v = (VCast W x₂)}{g = snd}{nfB = nfB} thd ok' fth (λ ()))
+-------- B = Sigma A B
+---------- (V : G => *) : * => Sigma A B --> ((V : G => *) : * => G') : G' => Sigma A B
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | sigma z z'
+  with cast-lemma-5-1 {n} {B} (sigma z z') (λ ()) (λ ()) ok'
+...  | fst , snd , thd , fth = step (Cast-Factor-R{v = (VCast W x₂)}{g = snd}{nfB = nfB} thd ok' fth (λ ()))
+-------- B = Bot
+---------- (V : G => *) : * => Bot --> Bot
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | yes eq | no ¬tyg | bot = step (Cast-Bot-R nfA)
 
-
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq
+------------------------------------------------------------------------------------------------
+-- (V : G => *) : A => B
+---- A ≠ Dyn
+------ (V : G => *) ▷ A'
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq
   with cast-lemma-6 {n} {e₁} {A'} {G₁} W j
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} (CastA{A' = A''} j' x' x₁' y') x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq | inj₁ eq' rewrite eq'
+-------- A' = Dyn
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} (CastA{A' = A''} j' x' x₁' y') x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq | inj₁ eq' rewrite eq'
   with cast-trivial-just-inv{A = Dyn}{B = A}{C = B} x₁
+---------- Dyn = A' = A, contradiction, A ≠ Dyn
 ...  | inj₁ eq'' = contradiction (sym eq'') ¬eq
+---------- Dyn = A' = S{V : A}, contradiction, S{V : A} ≠ Dyn
 ...  | inj₂ (fst , snd , ())
-progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq | inj₂ (fst , snd , thd) rewrite thd
-  with cast-trivial-just-inv{A = Single snd Dyn}{B = A}{C = B} x₁  
+-------- A' = S{V : Dyn}
+progress {n} {Cast (Cast .e₁ .G₁ .Dyn) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCast W x₂)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = G₁} {.Dyn} | no ¬eq | inj₂ (fst , snd , thd) rewrite thd
+  with cast-trivial-just-inv{A = Single snd Dyn}{B = A}{C = B} x₁
+---------- S{V : Dyn} = A' = A, contradiction, A is in Nf, Single not Nf
 ...  | inj₁ eq'' = contradiction (sym eq'') (¬Single-nf nfA fst snd Dyn)
+---------- S{V : Dyn} = A' = S{W : A}, contradiction, Dyn ≠ A
 ...  | inj₂ (fst' , snd' , thd') = contradiction (sym (proj₂ (Single-equiv thd'))) ¬eq
 
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)}
+------------------------------------------------------------------------------------------------
+-- (V : Pi A° B° => Pi A°° B°°) : A => B
+---- (V : Pi A° B° => Pi A°° B°°) ▷ A'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)}
   with cast-lemma-6 {n} {e₁} {A'} {Pi A° B°} {Pi A°° B°°} W j
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ rewrite x₂
+------ Pi A°° B°° = A'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ rewrite x₂
   with cast-trivial-just-inv{A = Pi A°° B°°}{B = A}{C = B} x₁
+-------- Pi A°° B°° = A' = A
 ...  | inj₁ x₃ rewrite (sym x₃)
      with B ≡ᵀ? Dyn
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | yes eq
+---------- B = Dyn
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | yes eq
   rewrite eq
   with TyG? (Pi A°° B°°)
-...  | yes tyg = result (RValue (VCast (VCastFun W) tyg))
+------------ TyG (Pi A°° B°°)
+-------------- Value: (V : Pi A° B° => Pi * *) : Pi * * => *
+...  | yes tyg = result (RValue (VCast (VCastFun{nfA = nfA°}{nfA' = nfA°°} W) tyg))
+------------ ¬ TyG (Pi A°° B°°) (and in Nf)
 ...  | no ¬tyg
      with cast-lemma-1 {n} {Pi A°° B°°} nfA ¬tyg
 ...     | pi x₄ x₅
-        with cast-lemma-5-1 {n} {Pi A°° B°°} (pi x₄ x₅) (λ ()) ok
-...        | fst , snd , thd , fth = step (Cast-Factor-L thd ok fth (λ ()))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq
-  with TyG? (Pi A°° B°°)
+        with cast-lemma-5-1 {n} {Pi A°° B°°} (pi x₄ x₅) (λ ()) ((λ ())) ok
+-------------- (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => * --> ((V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => G) : G => *
+...        | fst , snd , thd , fth = step (Cast-Factor-L{v = VCastFun{nfA = nfA°}{nfA' = nfA°°} W}{g = snd}{nfA = NfPi{nfA = nfA°°}} thd ok fth (λ ()))
+-- (V : Pi A° B° => Pi A°° B°°) : A => B
+---- (V : Pi A° B° => Pi A°° B°°) ▷ A'
+------ Pi A°° B°° = A'
+-------- Pi A°° B°° = A' = A
+---------- B ≠ Dyn
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq
+  with TyG? (Pi A°° B°°)  
+------------ TyG (Pi A°° B°°)  
 ...  | yes tyg
      with TyG? B
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | yes tyg | yes tyg'
+-------------- TyG B
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | yes tyg | yes tyg'
+---------------- Pi A°° B°° ~ B
   with x
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | yes tyg | no ¬tyg'
+------------------ B = Pi A°° B°°
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A°° B°°
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+------------------ B = Pi A* B*
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A* B*
+...  | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+-------------- ¬ TyG B
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | yes tyg | no ¬tyg'
+---------------- Pi A°° B°° ~ B
   with x
+------------------ B = *
+-------------------- contradiction B ≠ *
 ...  | AConsDynR x₄ = contradiction refl ¬eq
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg
+------------------ B = Pi A°° B°°
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A°° B°°
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+------------------ B = Pi A* B*
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A* B*
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | yes tyg | no ¬tyg' | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+-- (V : Pi A° B° => Pi A°° B°°) : A => B
+---- (V : Pi A° B° => Pi A°° B°°) ▷ A'
+------ Pi A°° B°° = A'
+-------- Pi A°° B°° = A' = A
+---------- B ≠ Dyn
+------------ ¬ TyG (Pi A°° B°°) 
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg
   with TyG? B
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg | yes tyg'
+-------------- TyG B
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg | yes tyg'
+---------------- Pi A°° B°° ~ B
   with x
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg | no ¬tyg'
+------------------ B = Pi A°° B°°
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A°° B°°
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+------------------ B = Pi A* B*
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A* B*
+...  | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+-------------- ¬ TyG B
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result nfB | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg | no ¬tyg'
+---------------- Pi A°° B°° ~ B
   with x
+------------------ B = *
+-------------------- contradiction B ≠ *
 ... | AConsDynR x₄ = contradiction refl ¬eq
-... | AConsRefl x₄ = result (RValue (VCastFun (VCastFun W)))
-... | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
--- Repitition of the above
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) rewrite thd
+------------------ B = Pi A°° B°°
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A°° B°°
+... | AConsRefl x₄ = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+------------------ B = Pi A* B*
+-------------------- Value: (V : Pi A° B° => Pi A°° B°°) : Pi A°° B°° => Pi A* B*
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₁ x₂ | inj₁ x₃ | no ¬eq | no ¬tyg | no ¬tyg' | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+------------------------------------------------------------------------------------------------
+-- (V : Pi A° B° => Pi A°° B°°) : A => B
+---- (V : Pi A° B° => Pi A°° B°°) ▷ A'
+------ S{V : Pi A°° B°°} = A'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) rewrite thd
   with cast-trivial-just-inv{A = Single snd (Pi A°° B°°)}{B = A}{C = B} x₁
-...  | inj₁ x₂ = contradiction (sym x₂) (¬Single-nf nfA fst snd (Pi A°° B°°)) 
+-------- S{V : Pi A°° B°°} = A' = A
+---------- contradiction, A nf, Single not nf
+...  | inj₁ x₂ = contradiction (sym x₂) (¬Single-nf nfA fst snd (Pi A°° B°°))
+-------- S{V : Pi A°° B°°} = A' = S{V : A}
+-------- => Pi A°° B°° = A, hence analogous to cases for Pi A°° B°° = A' = A
 ...  | inj₂ (fst' , snd' , thd')
      rewrite (sym (proj₂ (Single-equiv thd')))
      with B ≡ᵀ? Dyn
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)}
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)}
                                                                                                         | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | yes eq
   rewrite eq
   with TyG? (Pi A°° B°°)
-...  | yes tyg = result (RValue (VCast (VCastFun W) tyg))
+...  | yes tyg = result (RValue (VCast (VCastFun{nfA = nfA°}{nfA' = nfA°°} W) tyg))
 ...  | no ¬tyg
      with cast-lemma-1 {n} {Pi A°° B°°} nfA ¬tyg
 ...     | pi x₄ x₅
-        with cast-lemma-5-1 {n} {Pi A°° B°°} (pi x₄ x₅) (λ ()) ok
-...        | fst° , snd° , thd° , fth° = step (Cast-Factor-L thd° ok fth° (λ ()))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq
+        with cast-lemma-5-1 {n} {Pi A°° B°°} (pi x₄ x₅) (λ ()) ((λ ())) ok
+...        | fst° , snd° , thd° , fth° = step (Cast-Factor-L{v = VCastFun{nfA = nfA°}{nfA' = nfA°°} W}{g = snd°}{nfA = NfPi{nfA = nfA°°}} thd° ok fth° (λ ()))
+-- analogous to  Pi A°° B°°} = A'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq
   with TyG? (Pi A°° B°°)
 ...  | yes tyg
      with TyG? B
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | yes tyg | yes tyg'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | yes tyg | yes tyg'
   with x
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | yes tyg | no ¬tyg'
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+...  | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result nfB | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | yes tyg | no ¬tyg'
   with x
 ...  | AConsDynR x₄ = contradiction refl ¬eq
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | yes tyg | no ¬tyg' | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg
   with TyG? B
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg | yes tyg'
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg | yes tyg'
   with x
-...  | AConsRefl empty = result (RValue (VCastFun (VCastFun W)))
-...  | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))
-progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun W)) | result (RNf nfA) | result (RNf nfB) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg | no ¬tyg'
+...  | AConsRefl empty = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+...  | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result nfB | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg | no ¬tyg'
   with x
 ... | AConsDynR x₄ = contradiction refl ¬eq
-... | AConsRefl x₄ = result (RValue (VCastFun (VCastFun W)))
-... | AConsPi cons cons' = result (RValue (VCastFun (VCastFun W)))                                                                                                           
-
-
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq}
+... | AConsRefl x₄ = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA°°} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))
+progress {n} {Cast (Cast .e₁ (Pi A° B°) (Pi A°° B°°)) A B} {T} (CastA {A' = A'} {ok = ok} {ok'} j x x₁ y) | result (RValue (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)) | result (nfA) | result (NfPi{nfA = nfA''}) | cast-v {e = e₁} {A = .(Pi _ _)} {.(Pi _ _)} | inj₂ (fst , snd , thd) | inj₂ (fst' , snd' , thd') | no ¬eq | no ¬tyg | no ¬tyg' | AConsPi cons cons' = result (RValue (VCastFun{nfA = nfA°°}{nfA' = nfA''} (VCastFun{nfA = nfA°}{nfA' = nfA°°} W)))                                                                                                          
+------------------------------------------------------------------------------------------------
+-- V : A => B, V ≠ W : C => D
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq}
   with nB ≡ᵀ? Dyn
+---- B = Dyn  
 ...  | yes eq rewrite eq
+------ TyG A
      with TyG? nA
+-------- Value: V : G => *     
 ...     | yes tyg = result (RValue (VCast W tyg))
+------ ¬ TyG A (and in nf)
 ...     | no ¬tyg
-        with cast-lemma-1 {n} {nA} nfA ¬tyg        
+        with cast-lemma-1 {n} {nA} nfA ¬tyg
+---------- A = Dyn
+------------ V : * => * --> *
 ...        | dyn = step (Cast-Dyn{v = W})
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | yes eq | no ¬tyg | pi x₂ x₃
-  with cast-lemma-5-1 {n} {nA} (pi x₂ x₃) (λ ()) ok
+---------- A = Pi A B
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | yes eq | no ¬tyg | pi x₂ x₃
+  with cast-lemma-5-1 {n} {nA} (pi x₂ x₃) (λ ()) (λ ()) ok
+------------ V : Pi A B => * --> (V : Pi A B => G) : G => *
 ...  | fst , snd , thd , fth = step (Cast-Factor-L{v = W}{g = snd}{nfA = nfA} thd ok fth (λ ()))
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | yes eq | no ¬tyg | sigma x₂ x₃
-  with cast-lemma-5-1 {n} {nA} (sigma x₂ x₃) (λ ()) ok
-...  | fst , snd , thd , fth = step (Cast-Factor-L{v = W}{g = snd}{nfA = nfA} thd ok fth (λ ()))  
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq
+---------- A = Sigma A B
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | yes eq | no ¬tyg | sigma x₂ x₃
+  with cast-lemma-5-1 {n} {nA} (sigma x₂ x₃) (λ ()) (λ ()) ok
+------------ V : Sigma A B => * --> (V : Sigma A B => G) : G => *  
+...  | fst , snd , thd , fth = step (Cast-Factor-L{v = W}{g = snd}{nfA = nfA} thd ok fth (λ ()))
+---------- A = Bot
+------------ V : Bot => * --> Blame
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | yes eq | no ¬tyg | bot = step (Cast-Bot-L)
+-- V : A => B, V ≠ W : C => D
+---- B ≠ Dyn  
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq
+------ A = Dyn
   with nA ≡ᵀ? Dyn
 ...  | yes eq' rewrite eq'
-     with TyG? nB     
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | yes tyg
-  = contradiction (CastA j x x₁ y) (cast-lemma-3 {n} {e} {T} {nB} neq W tyg)
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg
+     with TyG? nB
+-------- TyG B
+---------- contradiction, (V : * => G), V ≠ Cast untypable in empty env.
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | yes tyg
+  = contradiction (CastA{ok = ok}{ok' = ok'} j x x₁ y) (cast-lemma-3 {n} {e} {T} {nB} neq W tyg)
+-------- ¬ TyG B (and in nf)
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg
   with cast-lemma-1 {n} {nB} nfB ¬tyg
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | dyn = contradiction refl ¬eq
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | pi x₂ x₃
-  with cast-lemma-5-1 {n} {nB} (pi x₂ x₃) (λ ()) ok'
-...  | fst , snd , thd , fth = step (Cast-Factor-R{v = W}{g = snd}{nfB = nfB} thd ok' fth (λ ()))  
-progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | sigma x₂ x₃
-  with cast-lemma-5-1 {n} {nB} (sigma x₂ x₃) (λ ()) ok'
-...  | fst , snd , thd , fth = step (Cast-Factor-R{v = W}{g = snd}{nfB = nfB} thd ok' fth (λ ()))    
-progress {n} {Cast e .Dyn nB} {T} (CastA {ok = ok} {ok'} j (AConsDynL x) x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq'
-progress {n} {Cast e nA .Dyn} {T} (CastA {ok = ok} {ok'} j (AConsDynR x) x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq
-progress {n} {Cast e UnitT .UnitT} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = step (Cast-Unit{v = W})
-progress {n} {Cast e Dyn .Dyn} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq
-progress {n} {Cast e (Label x₂) .(Label x₂)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (RNf nfA) | result (RNf nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = step (Cast-Label{v = W} (λ x → x))
-progress {n} {Cast e (Pi nA nA₁) .(Pi nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (RNf (NfPi{nfA = nfA})) | result (RNf (NfPi{nfA = nfA'})) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = result (RValue (VCastFun{nfA = nfA}{nfA' = nfA'} W))
-progress {n} {Cast e .(Pi _ _) .(Pi _ _)} {T} (CastA {ok = ok} {ok'} j (AConsPi x x₂) x₁ y) | result (RValue W) | result (RNf (NfPi{nfA = nfA})) | result (RNf (NfPi{nfA = nfA'})) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = result (RValue (VCastFun{nfA = nfA}{nfA' = nfA'} W))
-progress {n} {Cast e (Sigma nA nA₁) .(Sigma nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (RNf (NfSigma{nfA = nfA})) | result (RNf (NfSigma{nfA = nfA'})) | other-v{e = e}{neq} |  no ¬eq | no ¬eq'
+---------- B = Dyn
+------------ contradiction, B ≠ Dyn
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | dyn = contradiction refl ¬eq
+---------- B = Pi A* B*
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | pi x₂ x₃
+  with cast-lemma-5-1 {n} {nB} (pi x₂ x₃) (λ ()) (λ ()) ok'
+------------ (V : * => Pi A* B*) --> (V : * => G) : G => Pi A* B*  
+...  | fst , snd , thd , fth = step (Cast-Factor-R{v = W}{g = snd}{nfB = nfB} thd ok' fth (λ ()))
+---------- B = Sigma A* B*
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | sigma x₂ x₃
+  with cast-lemma-5-1 {n} {nB} (sigma x₂ x₃) (λ ()) (λ ()) ok'
+------------ (V : * => Sigma A* B*) --> (V : * => G) : G => Sigma A* B*    
+...  | fst , snd , thd , fth = step (Cast-Factor-R{v = W}{g = snd}{nfB = nfB} thd ok' fth (λ ()))
+---------- B = Bot
+------------ (V : * => Bot) --> Blame
+progress {n} {(Cast e nA nB)} {T} (CastA{ok = ok}{ok'} j x x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | yes eq' | no ¬tyg | bot = step (Cast-Bot-R nfA)
+-- V : A => B, V ≠ W : C => D, A ≠ *, B ≠ *
+---- (V : Bot => Bot) --> Blame
+progress {n} {Cast e Bot .Bot} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = step (Cast-Bot-R nfA)
+---- Contradictions to A ≠ * and B ≠ *
+progress {n} {Cast e .Dyn nB} {T} (CastA {ok = ok} {ok'} j (AConsDynL x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq'
+progress {n} {Cast e nA .Dyn} {T} (CastA {ok = ok} {ok'} j (AConsDynR x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq
+progress {n} {Cast e Dyn .Dyn} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = contradiction refl ¬eq
+---- (V : UnitT => UnitT) --> V
+progress {n} {Cast e UnitT .UnitT} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = step (Cast-Unit{v = W})
+
+---- (V : Label s => Label s) --> V
+progress {n} {Cast e (Label x₂) .(Label x₂)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (nfA) | result (nfB) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = step (Cast-Label{v = W} (λ x → x))
+---- Value: (V : Pi A B => Pi A B)
+progress {n} {Cast e (Pi nA nA₁) .(Pi nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (NfPi{nfA = nfA}) | result (NfPi{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = result (RValue (VCastFun{nfA = nfA}{nfA' = nfA'} W))
+---- Value: (V : Pi A B => Pi A' B')
+progress {n} {Cast e .(Pi _ _) .(Pi _ _)} {T} (CastA {ok = ok} {ok'} j (AConsPi x x₂) x₁ y) | result (RValue W) | result (NfPi{nfA = nfA}) | result (NfPi{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' = result (RValue (VCastFun{nfA = nfA}{nfA' = nfA'} W))
+---- (V : Sigma A B => Sigma A B)
+------ V = ⟨⟨ V' , W' ⟩⟩
+progress {n} {Cast e (Sigma nA nA₁) .(Sigma nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue W) | result (NfSigma{nfA = nfA}) | result (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} |  no ¬eq | no ¬eq'
   with cast-lemma-4 {n} {e} {nfA = nfA} {nfA' = nfA'} neq W (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y)
-progress {n} {Cast e (Sigma nA nA₁) .(Sigma nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue (VProd V W)) | result (RNf (NfSigma{nfA = nfA})) | result (RNf (NfSigma{nfA = nfA'})) | other-v{e = e}{neq} | no ¬eq | no ¬eq' | (fst , snd , thd , fth)
+progress {n} {Cast e (Sigma nA nA₁) .(Sigma nA nA₁)} {T} (CastA {ok = ok} {ok'} j (AConsRefl x) x₁ y) | result (RValue (VProd V W)) | result (NfSigma{nfA = nfA}) | result (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' | (fst , snd , thd , fth)
+-------- ⟨⟨ V' , W' ⟩⟩ : Sigma A B => Sigma A B --> let x = (V' : A => A) in ⟨⟨ x , W' : (B[V'/x] => B) ⟩⟩
   = step (Cast-Pair{w = W})
-progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | result (RValue W) | result (RNf (NfSigma{nfA = nfA})) | result (RNf (NfSigma{nfA = nfA'})) | other-v{e = e}{neq} | no ¬eq | no ¬eq'
+---- (V : Sigma A B => Sigma A' B')
+------ V = ⟨⟨ V' , W' ⟩⟩
+progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | result (RValue W) | result (NfSigma{nfA = nfA}) | result (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq'
   with cast-lemma-4 {n} {e} {nfA = nfA} {nfA' = nfA'} neq W (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y)
-progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | result (RValue (VProd V W)) | result (RNf (NfSigma{nfA = nfA})) | result (RNf (NfSigma{nfA = nfA'})) | other-v{e = e}{neq} | no ¬eq | no ¬eq' |  (fst , snd , thd , fth)
+progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | result (RValue (VProd V W)) | result (NfSigma{nfA = nfA}) | result (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' |  (fst , snd , thd , fth)
+-------- ⟨⟨ V' , W' ⟩⟩ : Sigma A B => Sigma A B --> let x = (V' : A => A') in ⟨⟨ x , W' : (B[V'/x] => B') ⟩⟩  
   = step (Cast-Pair{w = W})
 
--}
