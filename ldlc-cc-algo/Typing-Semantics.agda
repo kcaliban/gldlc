@@ -208,21 +208,21 @@ data _⊢_⇓_ {n} where
             → Γ ⊢ (f l ins) ⇓ D
             → Γ ⊢ CaseT U f ⇓ D
 
-  AUCaseX-P : {Γ Γ' Θ : TEnv {n}} {D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
+  AUCaseX-P : {Γ Γ' Θ : TEnv {n}} {D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
             → Γ ⊢ D ≤ᵀ Label L
             → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
             → Θ ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Pi (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UVal (VVar{i = ℕ.suc (length Γ')})) fᴰ)
 
-  AUCaseX-S : {Γ Γ' Θ : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
+  AUCaseX-S : {Γ Γ' Θ : TEnv {n}} {A D : Ty {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ D , Γ ⟩)}
             → Γ ⊢ D ≤ᵀ Label L
             → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VLab{x = l}) (Label ⁅ l ⁆) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
             → Θ ⊢ CaseT (UVal (VVar{i = length Γ'})) fᴮ ⇓ Sigma (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UVal (VVar{i = ℕ.suc (length Γ')})) fᴰ)
 
-  AUCaseXDyn-P : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
+  AUCaseXDyn-P : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                  → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
                  → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
 
-  AUCaseXDyn-S : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {l₀ : Fin n} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
+  AUCaseXDyn-S : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                  → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
                  → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
 
