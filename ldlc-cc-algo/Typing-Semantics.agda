@@ -220,11 +220,11 @@ data _⊢_⇓_ {n} where
 
   AUCaseXDyn-P : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                  → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Pi (fᴬ l i) (fᴰ l i))
-                 → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
+                 → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Pi (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
 
   AUCaseXDyn-S : {Γ Γ' Θ : TEnv {n}} {L : Subset n} {fᴬ fᴮ fᴰ : (∀ l → l ∈ L → Ty {n})} {eq : Θ ≡ (Γ' ++ ⟨ Dyn , Γ ⟩)}
                  → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , Γ ⟩) ⊢ (fᴮ l i) ⇓ Sigma (fᴬ l i) (fᴰ l i))
-                 → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (CaseT (UVal (VVar{i = length Γ'})) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
+                 → Θ ⊢ CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴮ ⇓ Sigma (CaseT (UCast{G = Label L} (VVar{i = length Γ'}) GLabel) fᴬ) (CaseT (UCast{G = Label L} (VVar{i = ℕ.suc (length Γ')}) GLabel) fᴰ)
 
 data _⊢_≡ᵀ_ {n} where
   AConvUnit : {Γ : TEnv {n}} → Γ ⊢ UnitT ≡ᵀ UnitT
