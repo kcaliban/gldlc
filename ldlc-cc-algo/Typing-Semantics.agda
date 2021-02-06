@@ -188,11 +188,11 @@ data _⊢_▷_ {n} where
           → ⟨ B , ⟨ A , Γ ⟩ ⟩ ⊢ N ▷ C
           → (¬ (0 ∈`ᵀ C)) × (¬ (1 ∈`ᵀ C))
           → Γ ⊢ LetP M N ▷ C           
-  Let : {Γ : TEnv {n}} {A B : Ty {n}} {M N : Exp {n}}
-        → ¬(0 ∈`ᵀ B)
-        → Γ ⊢ M ▷ A
-        → ⟨ A , Γ ⟩ ⊢ N ▷ B
-        → Γ ⊢ LetE M N ▷ B
+  LetA : {Γ : TEnv {n}} {A B : Ty {n}} {M N : Exp {n}}
+         → ¬(0 ∈`ᵀ B)
+         → Γ ⊢ M ▷ A
+         → ⟨ A , Γ ⟩ ⊢ N ▷ B
+         → Γ ⊢ LetE M N ▷ B
 
 data _⊢_⇓_ {n} where
   AURefl-U : {Γ : TEnv {n}} → Γ ⊢ UnitT ⇓ UnitT
