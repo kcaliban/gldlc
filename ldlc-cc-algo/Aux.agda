@@ -8,7 +8,7 @@ open import Data.Nat
 open import Level renaming (zero to lzero)
 open import Data.Fin
 open import Data.Fin.Properties
-open import Data.Fin.Subset renaming (∣_∣ to ∣_∣ˢ)
+open import Data.Fin.Subset renaming (∣_∣ to ∣_∣ˢ) hiding (⊤)
 open import Data.Fin.Subset.Properties
 open import Data.Vec
 open import Data.Bool
@@ -78,20 +78,20 @@ in-subset-uniqueness {.(ℕ.suc _)} {.(Fin.suc _)} (there l) (there l') = cong t
 ------------------------------------------------------------------------
 -- Decidable equality of functions (f : l → l ∈ s → A)
 
-dec-manipulate : {n : ℕ} {A : Set} → (dec : (a a' : A) → Dec (a ≡ a')) → ((a a' : A ⊎ Fin 1) → Dec (a ≡ a'))
+dec-manipulate : {n : ℕ} {A : Set} → (dec : (a a' : A) → Dec (a ≡ a')) → ((a a' : A ⊎ ⊤) → Dec (a ≡ a'))
 dec-manipulate {n} {A} dec (inj₁ x) (inj₁ x₁)
   with dec x x₁
 ...  | yes p = yes (cong inj₁ p)
 ...  | no ¬p = no λ x₂ → contradiction (sum-eq x₂) ¬p
 dec-manipulate {n} {A} dec (inj₁ x) (inj₂ y) = no λ ()
 dec-manipulate {n} {A} dec (inj₂ y) (inj₁ x) = no λ ()
-dec-manipulate {n} {A} dec (inj₂ zero) (inj₂ zero) = yes (cong inj₂ refl)
+dec-manipulate {n} {A} dec (inj₂ tt) (inj₂ tt) = yes (cong inj₂ refl)
 
-f-manipulate : {n : ℕ} {A : Set} {s : Subset n} → ((l : Fin n) → l ∈ s → A) → (Fin n → (A ⊎ Fin 1))
+f-manipulate : {n : ℕ} {A : Set} {s : Subset n} → ((l : Fin n) → l ∈ s → A) → (Fin n → (A ⊎ ⊤))
 f-manipulate {n} {A} {s} f l
   with l ∈? s
 ...  | yes p = inj₁ (f l p)
-...  | no ¬p = inj₂ zero
+...  | no ¬p = inj₂ tt
 
 f-equal : {n : ℕ} {A : Set} {dec : (a a' : A) → Dec (a ≡ a')} → (f f' : (l : Fin n) → A) → Dec (f ≡ f')
 f-equal {n} {A} {dec} f f'
