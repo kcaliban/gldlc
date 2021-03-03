@@ -45,7 +45,6 @@ fᵀ : (l : Fin 2) → l ∈ [l,l'] → Ty {2}
 fᵀ zero i = UnitT
 fᵀ (Fin.suc zero) i = Single (VLab{x = Fin.suc zero}) (Label [l'])
 
-
 ------------------------------------------------------------------------
 -- Big step semantics
 
@@ -133,107 +132,101 @@ e : Exp {2}
 e = Cast (Prod (Cast (LabI zero) (Single (VLab{x = zero}) (Label [l])) Dyn) (CaseE{s = [l,l']} (UCast{G = Label [l,l']} (VVar{i = 0}) GLabel) f))
     T T' 
 
-fᵀ-ok : {A : Ty {2}} {ok : [] ⊢ A} →
+⊢fᵀ : {A : Ty {2}} {ok : [] ⊢ A} →
         (l : Fin 2) (i : l ∈ [l,l']) → ⟨ A , [] ⟩ ⊢ fᵀ l i
 
-fᵀ-ok {A} {ok} zero i = UnitF (entry empty ok)
-fᵀ-ok {A} {ok} (Fin.suc zero) i = SingleF{ok = LabF (entry empty ok)} (entry empty ok) (SubTypeA (LabAI (entry empty ok)) (ASubSingle (ASubLabel (λ x → x)) notsingle-label notcase-label)) notsingle-label
+⊢fᵀ {A} {ok} zero i = UnitF (entry empty ok)
+⊢fᵀ {A} {ok} (Fin.suc zero) i = SingleF{ok = LabF (entry empty ok)} (entry empty ok) (SubTypeA (LabAI (entry empty ok)) (ASubSingle (ASubLabel (λ x → x)) notsingle-label notcase-label)) notsingle-label
 
-T-ok : [] ⊢ T
-T-ok = SigmaF (DynF empty) (CaseF{f-ok = fᵀ-ok {A = Dyn}{ok = DynF empty}} (SubTypeA (CastA{ok = DynF (entry empty (DynF empty))}{ok' = LabF (entry empty (DynF empty))} (VarA (entry empty (DynF empty)) here) (AConsDynL (entry empty (AConsRefl empty) (DynF empty) (DynF empty))) (just Data.Unit.tt) refl) (ASubLabel (λ x → x))))
+⊢T : [] ⊢ T
+⊢T = SigmaF (DynF empty) (CaseF{f-ok = ⊢fᵀ {A = Dyn}{ok = DynF empty}} (SubTypeA (CastA{ok = DynF (entry empty (DynF empty))}{ok' = LabF (entry empty (DynF empty))} (VarA (entry empty (DynF empty)) here) (AConsDynL (entry empty (AConsRefl empty) (DynF empty) (DynF empty))) (just Data.Unit.tt) refl) (ASubLabel (λ x → x))))
 
-T'-ok : [] ⊢ T'
-T'-ok = SigmaF (LabF empty) (CaseF{f-ok = fᵀ-ok {A = Label [l,l']}{ok = LabF empty}} (SubTypeA (VarA (entry empty (LabF empty)) here) (ASubLabel (λ x → x))))
+⊢T' : [] ⊢ T'
+⊢T' = SigmaF (LabF empty) (CaseF{f-ok = ⊢fᵀ {A = Label [l,l']}{ok = LabF empty}} (SubTypeA (VarA (entry empty (LabF empty)) here) (ASubLabel (λ x → x))))
+
+⊢Single : ∀ l → l ∈ [l,l'] → [] ⊢ Single (VLab{x = l}) (Label [l,l'])
+⊢Single l i = SingleF {ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L i)) notsingle-label notcase-label)) notsingle-label
+
+⊢Single' : ∀ l → l ∈ [l,l'] → [] ⊢ Single (VCast (VLab{x = l}) (GLabel{s = ⁅ l ⁆})) Dyn
+⊢Single' zero i = SingleF {ok = DynF empty} empty (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) (ASubSingle ASubDyn notsingle-dyn notcase-dyn)) notsingle-dyn
+⊢Single' (Fin.suc zero) i = SingleF {ok = DynF empty} empty (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) (ASubSingle ASubDyn notsingle-dyn notcase-dyn)) notsingle-dyn
+
+⊢-env-ok : ∀ l → l ∈ [l,l'] → ⊢ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) GLabel) Dyn , [] ⟩ ∣ ⟨ Single (VLab{x = l}) (Label [l,l']) , [] ⟩ ok
+⊢-env-ok zero i = entry empty (AConsSingleL (AConsDynL empty) (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
+                              (ASubSingle ASubDyn notsingle-dyn notcase-dyn))) (⊢Single' zero i) (⊢Single zero i)
+⊢-env-ok (Fin.suc zero) i = entry empty (AConsSingleL (AConsDynL empty) (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
+                                        (ASubSingle ASubDyn notsingle-dyn notcase-dyn))) (⊢Single' (Fin.suc zero) i) (⊢Single (Fin.suc zero) i)
 
 cast-rw : ∀ l → l ∈ [l,l'] → (Data.Maybe.fromMaybe UnitT (cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) (Label [l,l']))) ≡ Single (VLab{x = l}) (Label [l,l'])
 cast-rw zero i = refl
 cast-rw (Fin.suc zero) i = refl
 
-single-ok : ∀ l → l ∈ [l,l'] → [] ⊢ Single (VLab{x = l}) (Label [l,l'])
-single-ok l i = SingleF {ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L i)) notsingle-label notcase-label)) notsingle-label
+f▷fᵀ : (l : Fin 2) (i : l ∈ [l,l']) → ⟨  Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , [] ⟩ ⊢ f l i ▷ fᵀ l i
+f▷fᵀ zero i = UnitAI (entry empty (⊢Single' zero i))
+f▷fᵀ (Fin.suc zero) i = LabAI (entry empty (⊢Single' (Fin.suc zero) i))
 
-single-ok' : ∀ l → l ∈ [l,l'] → [] ⊢ Single (VCast (VLab{x = l}) (GLabel{s = ⁅ l ⁆})) Dyn
-single-ok' zero i = SingleF {ok = DynF empty} empty (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) (ASubSingle ASubDyn notsingle-dyn notcase-dyn)) notsingle-dyn
-single-ok' (Fin.suc zero) i = SingleF {ok = DynF empty} empty (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) (ASubSingle ASubDyn notsingle-dyn notcase-dyn)) notsingle-dyn
-
-function-j : (l : Fin 2) (i : l ∈ [l,l']) → ⟨  Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , [] ⟩ ⊢ f l i ▷ fᵀ l i
-function-j zero i = UnitAI (entry empty (single-ok' zero i))
-function-j (Fin.suc zero) i = LabAI (entry empty (single-ok' (Fin.suc zero) i))
-
-cons-premise-env-ok' : ∀ l → l ∈ [l,l'] → ⊢ ⟨ Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) GLabel) Dyn , [] ⟩ ∣ ⟨ Single (VLab{x = l}) (Label [l,l']) , [] ⟩ ok
-cons-premise-env-ok' zero i = entry empty (AConsSingleL (AConsDynL empty) (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
-                              (ASubSingle ASubDyn notsingle-dyn notcase-dyn))) (single-ok' zero i) (single-ok zero i)
-cons-premise-env-ok' (Fin.suc zero) i = entry empty (AConsSingleL (AConsDynL empty) (SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
-                                        (ASubSingle ASubDyn notsingle-dyn notcase-dyn))) (single-ok' (Fin.suc zero) i) (single-ok (Fin.suc zero) i)
-
-function-cons : ∀ l → (i : l ∈ [l,l']) → ⟨ Single (VCast (VLab{x = l}) (GLabel{s = ⁅ l ⁆})) Dyn , [] ⟩ ∣
+fᵀ~fᵀ : ∀ l → (i : l ∈ [l,l']) → ⟨ Single (VCast (VLab{x = l}) (GLabel{s = ⁅ l ⁆})) Dyn , [] ⟩ ∣
                                          ⟨ Single (VLab{x = l}) (Label (inside ∷ inside ∷ [])) , [] ⟩ ⊢ fᵀ l i ~ fᵀ l i
-function-cons zero i = AConsRefl (cons-premise-env-ok' zero i)
-function-cons (Fin.suc zero) i = AConsRefl (cons-premise-env-ok' (Fin.suc zero) i)
+fᵀ~fᵀ zero i = AConsRefl (⊢-env-ok zero i)
+fᵀ~fᵀ (Fin.suc zero) i = AConsRefl (⊢-env-ok (Fin.suc zero) i)
 
-B-B'-cons-LR : (l : Fin 2) (i : l ∈ [l,l']) →
+fᵀl~B' : (l : Fin 2) (i : l ∈ [l,l']) →
     {D° : Ty {2}} {p : Is-just (cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) (Label [l,l']))} {env-ty : (Data.Maybe.fromMaybe UnitT (cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) (Label [l,l']))) ≡ D°}
     → 
     ⟨  Single (VCast{G = (Label ⁅ l ⁆)} (VLab{x = l}) (GLabel)) (Dyn) , [] ⟩ ∣
     ⟨ D° , [] ⟩
     ⊢ fᵀ l i ~ B'
-B-B'-cons-LR l i {D°} {p} {env-ty} rewrite (cast-rw l i) | sym (env-ty)
-  = AConsCaseLR {ins = i} (VarA (entry empty (SingleF {ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L i)) notsingle-label notcase-label)) notsingle-label)) here) (λ x → x) (function-cons l i)
+fᵀl~B' l i {D°} {p} {env-ty} rewrite (cast-rw l i) | sym (env-ty)
+  = AConsCaseLR {ins = i} (VarA (entry empty (SingleF {ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L i)) notsingle-label notcase-label)) notsingle-label)) here) (λ x → x) (fᵀ~fᵀ l i)
 
-B-B'-cons :  ⟨ Dyn , [] ⟩ ∣ ⟨ Label [l,l'] , [] ⟩ ⊢ B ~ B'
-B-B'-cons = AConsCaseXLDyn{Δ = []}{Δ' = []}{eq = refl}{eq' = refl}  B-B'-cons-LR
+B~B' :  ⟨ Dyn , [] ⟩ ∣ ⟨ Label [l,l'] , [] ⟩ ⊢ B ~ B'
+B~B' = AConsCaseXLDyn{Δ = []}{Δ' = []}{eq = refl}{eq' = refl} fᵀl~B'
 
-j : [] ⊢ e ▷ T'
-j = CastA{ok = T-ok}{ok' = T'-ok}
-    (SigmaAI (SubTypeA (CastA
-      {ok = SingleF{ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)) notsingle-label notcase-label)) notsingle-label}
-      {ok' = DynF empty}
-      (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) ASubDyn) (LabAExDyn{eq = refl} function-j)) (AConsSigma (AConsDynL empty) B-B'-cons)
-    (cast-trivial-just{A = T}{C = T'} refl) (cast-trivial{A = T}{B = T}{C = T'} refl)
+e▷T' : [] ⊢ e ▷ T'
+e▷T' = CastA{ok = ⊢T}{ok' = ⊢T'}
+        (SigmaAI (SubTypeA (CastA
+          {ok = SingleF{ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)) notsingle-label notcase-label)) notsingle-label}
+          {ok' = DynF empty}
+          (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl) ASubDyn) (LabAExDyn{eq = refl} f▷fᵀ))
+        (AConsSigma (AConsDynL empty) B~B')
+        (cast-trivial-just{A = T}{C = T'} refl) (cast-trivial{A = T}{B = T}{C = T'} refl)
 
--- ∅ ⊢ (λx . (case (x : * => {l,l'}) of {l : (), l' : LabI l'}) : Π(x : *)(case ...) => Π(x : {l, l'})(case ...)) l ▷ ()
+-- ∅ ⊢ (λx . (case (x : * => {l,l'}) of {l : (), l' : LabI l'}) : Π(x : *)(case ...) => Π(x : {l, l'})(case ...)) l ▷ (case ...)
+example-function-f▷ : [] ⊢ example-function-f ▷ Pi Dyn (CaseT (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) fᵀ)
+example-function-f▷ = PiAI (LabAExDyn{eq = refl} f▷fᵀ)
 
--- ∅ ⊢ (λx . (case (x : * => {l,l'}) of {l : (), l' : LabI l'}) : Π(x : *)(case ...) => Π(x : {l, l'})(case ...)) ▷ Π(x : {l, l'})(case ...)
-{-
-example-function-f : Exp {2}
-example-function-f = Abs (CaseE (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) f)
--}
-example-function-typed : [] ⊢ example-function-f ▷ Pi Dyn (CaseT (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) fᵀ)
-example-function-typed = PiAI (LabAExDyn{eq = refl} function-j)
-
-
-function-cons'-premise : (l : Fin 2) (i : l ∈ [l,l'])
+fᵀl~case : (l : Fin 2) (i : l ∈ [l,l'])
                           {D° : Ty} {p : Is-just (cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) (Label [l,l']))}
                           {env-ty : Data.Maybe.fromMaybe UnitT (cast (Single (VLab{x = l}) (Label ⁅ l ⁆)) (Label ⁅ l ⁆) (Label [l,l'])) ≡ D°}
                           →
                           ( ⟨ Single (VCast (VLab{x = l}) (GLabel{s = ⁅_⁆ {2} l})) Dyn , [] ⟩) ∣
                             ⟨ D° , [] ⟩ ⊢ fᵀ l i ~ CaseT (UVal (VVar{i = 0})) fᵀ
-function-cons'-premise zero here {.(Single VLab (Label (inside ∷ inside ∷ [])))} {just Data.Unit.tt} {refl}
+fᵀl~case zero here {.(Single VLab (Label (inside ∷ inside ∷ [])))} {just Data.Unit.tt} {refl}
   = AConsCaseLR {ins = here}
       (VarA (entry empty (SingleF{ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L here)) (notsingle λ e B W ()) (notcase λ e s U F ()))) (notsingle λ e B W ()))) here)
       (λ x → x)
       (AConsRefl (entry empty (AConsSingleL (AConsDynL empty) ((SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
-        (ASubSingle ASubDyn notsingle-dyn notcase-dyn)))) (single-ok' zero here) (single-ok zero here)))
-function-cons'-premise (suc zero) (there here) {.(Single VLab (Label (inside ∷ inside ∷ [])))} {just Data.Unit.tt} {refl}
+        (ASubSingle ASubDyn notsingle-dyn notcase-dyn)))) (⊢Single' zero here) (⊢Single zero here)))
+fᵀl~case (suc zero) (there here) {.(Single VLab (Label (inside ∷ inside ∷ [])))} {just Data.Unit.tt} {refl}
   = AConsCaseLR {ins = there here}
       (VarA (entry empty (SingleF{ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L (there here))) (notsingle λ e B W ()) (notcase λ e s U F ()))) (notsingle λ e B W ()))) here)
       (λ x → x)
       (AConsRefl (entry empty (AConsSingleL (AConsDynL empty) ((SubTypeA (CastA{ok = LabF empty}{ok' = DynF empty} (LabAI empty) (AConsDynR empty) (just Data.Unit.tt) refl)
-        (ASubSingle ASubDyn notsingle-dyn notcase-dyn)))) (single-ok' (Fin.suc zero) (there here)) (single-ok (Fin.suc zero) (there here))))
+        (ASubSingle ASubDyn notsingle-dyn notcase-dyn)))) (⊢Single' (Fin.suc zero) (there here)) (⊢Single (Fin.suc zero) (there here))))
 
-function-cons' : ⟨ Dyn , [] ⟩ ∣ ⟨ Label [l,l'] , [] ⟩ ⊢ CaseT (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) fᵀ ~ CaseT (UVal (VVar{i = 0})) fᵀ
-function-cons' = AConsCaseXLDyn{Γ = []}{Δ = []}{Δ' = []}{D' = Label [l,l']}{eq = refl}{eq' = refl} function-cons'-premise
+fᵀ~fᵀ' : ⟨ Dyn , [] ⟩ ∣ ⟨ Label [l,l'] , [] ⟩ ⊢ CaseT (UCast{e = Var 0}{G = Label [l,l']} VVar GLabel) fᵀ ~ CaseT (UVal (VVar{i = 0})) fᵀ
+fᵀ~fᵀ' = AConsCaseXLDyn{Γ = []}{Δ = []}{Δ' = []}{D' = Label [l,l']}{eq = refl}{eq' = refl} fᵀl~case
 
-pi-ok : [] ⊢ Pi Dyn (CaseT (UCast (VVar{i = 0}) (GLabel{s = [l,l']})) fᵀ)
-pi-ok = PiF (DynF empty) (CaseF{f-ok = fᵀ-ok{ok = DynF empty}} (SubTypeA (CastA{ok = DynF (entry empty (DynF empty))}{ok' = LabF (entry empty (DynF empty))}
+⊢Pi : [] ⊢ Pi Dyn (CaseT (UCast (VVar{i = 0}) (GLabel{s = [l,l']})) fᵀ)
+⊢Pi = PiF (DynF empty) (CaseF{f-ok = ⊢fᵀ{ok = DynF empty}} (SubTypeA (CastA{ok = DynF (entry empty (DynF empty))}{ok' = LabF (entry empty (DynF empty))}
             (VarA (entry empty (DynF empty)) here) (AConsDynL (entry empty (AConsRefl empty) (DynF empty) (DynF empty))) (just Data.Unit.tt) refl) (ASubLabel (λ x → x))))
 
-pi-ok' : [] ⊢ Pi (Label [l,l']) (CaseT (UVal (VVar{i = 0})) fᵀ)
-pi-ok' = PiF (LabF empty) (CaseF{f-ok = fᵀ-ok{ok = LabF empty}} (SubTypeA (VarA (entry empty (LabF empty)) here) (ASubLabel (λ x → x))))
+⊢Pi' : [] ⊢ Pi (Label [l,l']) (CaseT (UVal (VVar{i = 0})) fᵀ)
+⊢Pi' = PiF (LabF empty) (CaseF{f-ok = ⊢fᵀ{ok = LabF empty}} (SubTypeA (VarA (entry empty (LabF empty)) here) (ASubLabel (λ x → x))))
 
-example-function-cast-typed : [] ⊢ example-function-f-cast ▷ Pi (Label [l,l']) (CaseT (UVal (VVar{i = 0})) fᵀ)
-example-function-cast-typed = CastA{ok = pi-ok}{ok' = pi-ok'}
-                              example-function-typed (AConsPi (AConsDynL empty) function-cons')
+example-function▷ : [] ⊢ example-function-f-cast ▷ Pi (Label [l,l']) (CaseT (UVal (VVar{i = 0})) fᵀ)
+example-function▷ = CastA{ok = ⊢Pi}{ok' = ⊢Pi'}
+                              example-function-f▷ (AConsPi (AConsDynL empty) fᵀ~fᵀ')
                               (cast-trivial-just{A = Pi Dyn (CaseT (UCast VVar GLabel) fᵀ)}{C = Pi (Label [l,l']) (CaseT (UVal VVar) fᵀ)} refl)
                               (cast-trivial{A = Pi Dyn (CaseT (UCast (VVar{i = 0}) (GLabel{s = [l,l']})) fᵀ)}{C = Pi (Label [l,l']) (CaseT (UVal VVar) fᵀ)} refl)
 
@@ -242,7 +235,7 @@ example-function-subs zero here = UnitF empty
 example-function-subs (suc zero) (there here) = SingleF{ok = LabF empty} empty (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (λ x → x)) (notsingle λ e B W ()) (notcase λ e s U F ()))) (notsingle λ e B W ())
 
 example-function-app-typed : [] ⊢ App example-function-f-cast (VLab{x = zero}) ▷ ([ 0 ↦ VLab{x = zero} ]ᵀ (CaseT (UVal (VVar{i = 0})) fᵀ))
-example-function-app-typed = PiAE example-function-cast-typed AURefl-P
+example-function-app-typed = PiAE example-function▷ AURefl-P
                              (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L here)) (notsingle λ e B W ()) (notcase λ e s U F ())))
                              (CaseF{f-ok = example-function-subs} (SubTypeA (LabAI empty) (ASubSingle (ASubLabel (l∈L⇒[l]⊆L here)) (notsingle λ e B W ()) (notcase λ e s U F ()))))
 
