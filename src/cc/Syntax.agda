@@ -16,7 +16,7 @@ open import Data.Sum
 
 open import Aux
 
--- required for termination checking on decidability of equality of functions (l : Fin n → l ∈ s → Ty) in
+-- required for termination checking on decidability of syntactic equality of functions (l : Fin n → l ∈ s → Ty) in
 -- CaseT U f ≡ᵀ CaseT U' f'
 -- Agda does not recognize that (f l i) is structurally smaller than (CaseT U f)
 open import Size renaming (↑_ to ↑ˡ)
@@ -251,7 +251,7 @@ Single-equiv {n} {e} {.e} {V} {.V} {A} {.A} refl = refl , refl
 ------------------------------------------------------------------------
 -- decidable
 
- -- Decidable equalities
+ -- Decidable syntactic equalities
 _≡ᵀ?_ : {n : ℕ} {i : Size} (A B : Ty {n} {i}) → Dec (A ≡ B)
 _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 
@@ -346,7 +346,7 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
 
 
 
--- Equality implementations
+-- Syntactic equality implementations
 UnitE ≡ᵉ? UnitE = yes refl
 Blame ≡ᵉ? Blame = yes refl
 
