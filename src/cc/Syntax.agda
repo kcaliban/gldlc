@@ -29,7 +29,6 @@ data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data ValU {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data Ty {n : ℕ} : {i : Size} → Set
 data TyG {n : ℕ} : Ty {n} → Set
-data TyNf {n : ℕ} : Ty {n} → Set
 data TyB {n : ℕ} : Ty {n} → Set
 
 data Exp {n} where
@@ -56,13 +55,6 @@ data Ty {n} where
   Sigma : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   CaseT : {i : Size} {s : Subset n} {e : Exp {n} {i}} → ValU {n} {i} e → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
 
-data TyNf {n} where
-  NfDyn : TyNf Dyn
-  NfUnit : TyNf UnitT
-  NfLabel : {s : Subset n} → TyNf (Label s)
-  NfPi : {A B : Ty {n}} {nfA : TyNf A} → TyNf (Pi A B)
-  NfSigma : {A B : Ty {n}} {nfA : TyNf A} → TyNf (Sigma A B)
-
 data ValU {n} where
   UVar : {x : ℕ} → ValU (Var x)
   -- determinism for Cast e A B ⇒ split (ValU V) to all except VCast/VCastFun
@@ -80,7 +72,7 @@ data Val {n} where
   VFun : {N : Exp} → Val (Abs N)
   VProd : {e e' : Exp} → (v : Val e) → Val e' → Val (ProdV v e')
   VCast : {e : Exp} {G : Ty {n}} → Val e → TyG G → Val (Cast e G Dyn)
-  VCastFun : {e : Exp} {nA nA' B B' : Ty {n}} {nfA : TyNf nA} {nfA' : TyNf nA'} → Val e → Val (Cast e (Pi nA B) (Pi nA' B'))
+  VCastFun : {e : Exp} {A A' B B' : Ty {n}}  → Val e → Val (Cast e (Pi A B) (Pi A' B'))
 
 data TyG {n} where
   GSingle : {e : Exp {n}} {V : Val e} → TyG (Single V)
@@ -94,7 +86,8 @@ data TyB {n} where
   BLabel : {s : Subset n} → TyB (Label s)
   BSingleLab : {l : Fin n} → TyB (Single (VLab{x = l}))
   BSingleUnit : TyB (Single (VUnit))
-
+--  BSingleCast : {e : Exp {n}} {V : Val e} {G : Ty {n}} {tyg : TyG G} → TyB (Single (VCast V tyg))
+  BDyn : TyB Dyn
 
 ------------------------------------------------------------------------
 -- predicates, relations, views
@@ -197,13 +190,6 @@ singleView {n} (Single x) = single-v
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
 
-TyNf-uniqueness : {n : ℕ} {nA : Ty {n}} → (nf nf' : TyNf nA) → nf ≡ nf'
-TyNf-uniqueness {n} {.(Dyn {_} {∞})} NfDyn NfDyn = refl
-TyNf-uniqueness {n} {.(UnitT {_} {∞})} NfUnit NfUnit = refl
-TyNf-uniqueness {n} {.(Label {_} {∞} s)} (NfLabel {s = s}) (NfLabel {s = .s}) = refl
-TyNf-uniqueness {n} {.(Pi A B)} (NfPi {A = A} {B = B} {nfA = nf}) (NfPi {A = .A} {B = .B} {nfA = nf'}) rewrite TyNf-uniqueness nf nf' = refl
-TyNf-uniqueness {n} {.(Sigma A B)} (NfSigma {A = A} {B = B} {nfA = nf}) (NfSigma {A = .A} {B = .B} {nfA = nf'}) rewrite TyNf-uniqueness nf nf' = refl
-
 TyG-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG G) → x ≡ x'
 TyG-uniqueness {n} {.UnitT} GUnit GUnit = refl
 TyG-uniqueness {n} {.(Label _)} GLabel GLabel = refl
@@ -219,8 +205,8 @@ Val-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV v _)} (VProd v v₁) (VProd .v v')
   rewrite (Val-uniqueness v₁ v') = refl
 Val-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ Dyn)} (VCast v x) (VCast v' x₁)
   rewrite (Val-uniqueness v v') | (TyG-uniqueness x x₁) = refl
-Val-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun{nfA = nfA}{nfA' = nfA'} v) (VCastFun{nfA = nfB}{nfA' = nfB'} v')
-  rewrite (Val-uniqueness v v') | (TyNf-uniqueness nfA nfB) | (TyNf-uniqueness nfA' nfB') = refl
+Val-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) (VCastFun v')
+  rewrite (Val-uniqueness v v') = refl
 
 ValU-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : ValU {n} {i} e) → x ≡ x'
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Var _)} UVar UVar = refl
@@ -234,12 +220,6 @@ ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UValCast x) (UValCast x₁)
   rewrite (Val-uniqueness x x₁) = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.Blame} UBlame UBlame = refl
 
-TyNf-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyNf (Pi A B) → TyNf A
-TyNf-Pi-inv {n} {A} {B} (NfPi{nfA = nfA}) = nfA
-
-TyNf-Sigma-inv : {n : ℕ} {A B : Ty {n}} → TyNf (Sigma A B) → TyNf A
-TyNf-Sigma-inv {n} {A} {B} (NfSigma{nfA = nfA}) = nfA
-
 TyG-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyG (Pi A B) → A ≡ Dyn × B ≡ Dyn
 TyG-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
 
@@ -249,12 +229,9 @@ TyG-Sigma-inv {n} {.Dyn} {.Dyn} GSigma = refl , refl
 Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} {v : Val e} → Val (ProdV v e') → Val e'
 Val-ProdV-inv {n} {e} {e'} {v} (VProd .v val) = val
 
-Val-Cast-inv : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → Val (Cast e A B) → (Val e × (TyG A × B ≡ Dyn ⊎ ∃[ A° ](∃[ B° ](∃[ A°° ](∃[ B°° ](A ≡ Pi A° B° × B ≡ Pi A°° B°° × TyNf A° × TyNf A°°))))))
+Val-Cast-inv : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → Val (Cast e A B) → (Val e × (TyG A × B ≡ Dyn ⊎ ∃[ A° ](∃[ B° ](∃[ A°° ](∃[ B°° ](A ≡ Pi A° B° × B ≡ Pi A°° B°°))))))
 Val-Cast-inv {n} {e} {A} {.Dyn} (VCast val x) = val , (inj₁ (x , refl))
-Val-Cast-inv {n} {e} {(Pi A° B°)} {(Pi A°° B°°)} (VCastFun{nfA = nfA}{nfA'} val) = val , (inj₂ (A° , (B° , (A°° , (B°° , (refl , (refl , (nfA , nfA'))))))))
-
-Val-Cast-inv-Pi : {n : ℕ} {e : Exp {n}} {A B A° B° : Ty {n}} → Val (Cast e (Pi A B) (Pi A° B°)) → TyNf A × TyNf A°
-Val-Cast-inv-Pi {n} {e} {A} {B} {A°} {B°} (VCastFun{nfA = nfA}{nfA'} V) = nfA , nfA'
+Val-Cast-inv {n} {e} {(Pi A° B°)} {(Pi A°° B°°)} (VCastFun val) = val , (inj₂ (A° , (B° , (A°° , (B°° , (refl , (refl)))))))
 
 Pi-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Pi A B ≡ Pi A' B' → A ≡ A' × B ≡ B'
 Pi-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
@@ -264,13 +241,6 @@ Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 
 Single-equiv : {n : ℕ} {e e' : Exp {n}} {V : Val e} {V' : Val e'} → Single V ≡ Single V' → e ≡ e'
 Single-equiv {n} {e} {.e} {V} {.V} refl = refl
-
-¬Single-nf : {n : ℕ} {A : Ty {n}} → TyNf A → (∀ e V → A ≢ Single{n = n}{e = e} V)
-¬Single-nf {n} {.Dyn} NfDyn = λ e V → λ ()
-¬Single-nf {n} {.UnitT} NfUnit = λ e V → λ ()
-¬Single-nf {n} {.(Label _)} NfLabel = λ e V → λ ()
-¬Single-nf {n} {.(Pi _ _)} NfPi = λ e V → λ ()
-¬Single-nf {n} {.(Sigma _ _)} NfSigma = λ e V → λ ()
 
 ------------------------------------------------------------------------
 -- decidable
@@ -283,7 +253,6 @@ _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 -- Decidable predicates
 Val?_ : {n : ℕ} (e : Exp {n}) → Dec (Val e)
 TyG?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG A)
-TyNf?_ : {n : ℕ} (A : Ty {n}) → Dec (TyNf A)
 
 -- Predicate implementations
 TyG? Bot = no λ ()
@@ -309,22 +278,6 @@ TyG? Sigma x x₁
 ...     | no ¬p' = no  λ x₂ → contradiction (proj₁ (TyG-Sigma-inv x₂)) ¬p'  
 TyG? CaseT x f = no λ ()
 
-TyNf? Bot = no λ ()
-TyNf? UnitT = yes NfUnit
-TyNf? Dyn = yes NfDyn
-TyNf? Single x = no λ ()
-TyNf? Label x = yes NfLabel
-TyNf? Pi T T₁
-  with TyNf? T
-...  | yes p = yes (NfPi{nfA = p})
-...  | no ¬p = no (λ x → contradiction (TyNf-Pi-inv x ) ¬p)
-TyNf? Sigma T T₁
-  with TyNf? T
-...  | yes p = yes (NfSigma{nfA = p})
-...  | no ¬p = no (λ x → contradiction (TyNf-Sigma-inv x ) ¬p)  
-TyNf? CaseT x f = no λ ()
-
-
 Val? LetP e e₁ = no (λ ())
 Val? LetE e e₁ = no (λ ())
 Val? UnitE = yes VUnit
@@ -344,16 +297,12 @@ Val? Cast e A B
 ...  | no ¬v = no (λ x₂ → contradiction (proj₁ (Val-Cast-inv x₂)) ¬v)
 Val? Cast e A B | yes v
   with piView A | piView B
-Val? Cast e (Pi A° B°) (Pi A°° B°°) | yes v | pi-v | pi-v
-  with TyNf? A° | TyNf? A°°
-...  | yes tynf | yes tynf' = yes (VCastFun{nfA = tynf}{nfA' = tynf'} v)
-...  | no ¬tynf | _ = no (λ x → contradiction (proj₁ (Val-Cast-inv-Pi x)) ¬tynf)
-...  | _ | no ¬tynf' = no (λ x → contradiction (proj₂ (Val-Cast-inv-Pi x)) ¬tynf')
+Val? Cast e (Pi A° B°) (Pi A°° B°°) | yes v | pi-v | pi-v = yes (VCastFun v)
 Val? Cast e A (Pi A°° B°°) | yes v | other-v{neq = neq} | pi-v = no ϱ
   where ϱ : ¬ Val (Cast e A (Pi A°° B°°))
         ϱ v°
           with (Val-Cast-inv v°)
-        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth , svnth) = contradiction ffth (neq fst' snd )
+        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth) = contradiction ffth (neq fst' snd )
 Val? Cast e A B | yes v | _ | other-v{neq = neq}
   with TyG? A | B ≡ᵀ? Dyn
 ...  | yes tyg | yes eq rewrite eq = yes (VCast v tyg)
@@ -362,13 +311,13 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | no ¬tyg | yes eq = no ϱ
         ϱ v°
           with (Val-Cast-inv v°)
         ...  | fst , inj₁ (fst' , snd) = contradiction fst' ¬tyg
-        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth , svnth) = contradiction (≡-trans (sym sxth) eq) (λ ())
+        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth) = contradiction (≡-trans (sym sxth) eq) (λ ())
 Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
   where ϱ : ¬ Val (Cast e A B)
         ϱ v°
           with (Val-Cast-inv v°)
         ...  | fst , inj₁ (fst₁ , snd) = contradiction snd ¬eq
-        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth , svnth) = contradiction sxth (neq thd fth)
+        ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth) = contradiction sxth (neq thd fth)
 
 
 

@@ -28,7 +28,6 @@ open import Aux
 shift-val : ∀ {n d c} {e : Exp {n}} → Val e → Val (↑ d , c [ e ])
 shift-valu : ∀ {n d c} {e : Exp {n}} → ValU e → ValU (↑ d , c [ e ])
 shift-tyg : ∀ {n d c} {A : Ty {n}} → TyG A → TyG (↑ᵀ d , c [ A ])
-shift-tynf : ∀ {n d c} {A : Ty {n}} → TyNf A → TyNf (↑ᵀ d , c [ A ])  
 
 ↑ d , c [ UnitE ] = UnitE
 ↑ d , c [ Blame ] = Blame
@@ -54,7 +53,7 @@ shift-tynf : ∀ {n d c} {A : Ty {n}} → TyNf A → TyNf (↑ᵀ d , c [ A ])
 
 shift-val {n} {d} {c} {.UnitE} VUnit = VUnit
 shift-val {n} {d} {c} {(Cast e A B)} (VCast v g) = VCast (shift-val v) (shift-tyg g)
-shift-val {n} {d} {c} {(Cast e A B)} (VCastFun{nfA = nfA}{nfA' = nfA'} v) = VCastFun{nfA = shift-tynf nfA}{nfA' = shift-tynf nfA'} (shift-val v)
+shift-val {n} {d} {c} {(Cast e A B)} (VCastFun v) = VCastFun (shift-val v)
 shift-val {n} {d} {c} {.(LabI _)} VLab = VLab
 shift-val {n} {d} {c} {.(Abs _)} VFun = VFun
 shift-val {n} {d} {c} {.(ProdV V _)} (VProd V V₁) = VProd (shift-val V) (shift-val V₁)
@@ -73,12 +72,6 @@ shift-tyg {n} {d} {c} {.(Label _)} GLabel = GLabel
 shift-tyg {n} {d} {c} {.(Pi Dyn Dyn)} GPi = GPi
 shift-tyg {n} {d} {c} {.(Sigma Dyn Dyn)} GSigma = GSigma
 shift-tyg {n} {d} {c} {Single V} GSingle = GSingle
-
-shift-tynf {n} {d} {c} {.Dyn} NfDyn = NfDyn
-shift-tynf {n} {d} {c} {.UnitT} NfUnit = NfUnit
-shift-tynf {n} {d} {c} {.(Label _)} NfLabel = NfLabel
-shift-tynf {n} {d} {c} {.(Pi _ _)} (NfPi{nfA = nfA}) = NfPi{nfA = shift-tynf nfA}
-shift-tynf {n} {d} {c} {.(Sigma _ _)} (NfSigma{nfA = nfA}) = NfSigma{nfA = shift-tynf nfA}
 
 -- shorthands
 ↑¹[_] : ∀ {n} → Exp {n} → Exp
@@ -99,7 +92,6 @@ shift-tynf {n} {d} {c} {.(Sigma _ _)} (NfSigma{nfA = nfA}) = NfSigma{nfA = shift
 sub-val : ∀ {n k} {e e' : Exp {n}} {v : Val e'} → Val e → Val ([ k ↦ v ] e)
 sub-valu : ∀ {n k} {e e' : Exp {n}} {v : Val e'} → ValU e → ValU ([ k ↦ v ] e)
 sub-tyg : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyG A → TyG ([ k ↦ v ]ᵀ A)
-sub-tynf : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyNf A → TyNf ([ k ↦ v ]ᵀ A)
 
 [_↦_]_ {n} {e} k v (Var x)
   with (_≟ᴺ_ x k)
@@ -128,7 +120,7 @@ sub-tynf : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyNf A → TyNf 
 
 sub-val {n} {k} {.UnitE} {e'} {v} VUnit = VUnit
 sub-val {n} {k} {Cast e A B} {e'} {v} (VCast v' g) = VCast (sub-val v') (sub-tyg g)
-sub-val {n} {k} {Cast e A B} {e'} {v} (VCastFun{nfA = nfA}{nfA' = nfA'} v') = VCastFun{nfA = sub-tynf nfA}{nfA' = sub-tynf nfA'} (sub-val v')
+sub-val {n} {k} {Cast e A B} {e'} {v} (VCastFun v') = VCastFun (sub-val v')
 sub-val {n} {k} {.(LabI _)} {e'} {v} VLab = VLab
 sub-val {n} {k} {.(Abs _)} {e'} {v} VFun = VFun
 sub-val {n} {k} {.(ProdV v' _)} {e'} {v} (VProd v' v'') = VProd (sub-val v') (sub-val v'')
@@ -153,10 +145,4 @@ sub-tyg {n} {k} {.(Label _)} {e} {v} GLabel = GLabel
 sub-tyg {n} {k} {.(Pi Dyn Dyn)} {e} {v} GPi = GPi
 sub-tyg {n} {k} {.(Sigma Dyn Dyn)} {e} {v} GSigma = GSigma
 sub-tyg {n} {k} {Single V} {e} {V'} GSingle = GSingle
-
-sub-tynf {n} {k} {.Dyn} {e} {v} NfDyn = NfDyn
-sub-tynf {n} {k} {.UnitT} {e} {v} NfUnit = NfUnit
-sub-tynf {n} {k} {.(Label _)} {e} {v} NfLabel = NfLabel
-sub-tynf {n} {k} {.(Pi _ _)} {e} {v} (NfPi{nfA = nfA}) = NfPi{nfA = sub-tynf nfA}
-sub-tynf {n} {k} {.(Sigma _ _)} {e} {v} (NfSigma{nfA = nfA}) = NfSigma{nfA = sub-tynf nfA}
 
