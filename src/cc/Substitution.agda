@@ -28,6 +28,7 @@ open import Aux
 shift-val : ∀ {n d c} {e : Exp {n}} → Val e → Val (↑ d , c [ e ])
 shift-valu : ∀ {n d c} {e : Exp {n}} → ValU e → ValU (↑ d , c [ e ])
 shift-tyg : ∀ {n d c} {A : Ty {n}} → TyG A → TyG (↑ᵀ d , c [ A ])
+shift-tyg' : ∀ {n d c} {A : Ty {n}} → TyG' A → TyG' (↑ᵀ d , c [ A ])
 
 ↑ d , c [ UnitE ] = UnitE
 ↑ d , c [ Blame ] = Blame
@@ -45,7 +46,7 @@ shift-tyg : ∀ {n d c} {A : Ty {n}} → TyG A → TyG (↑ᵀ d , c [ A ])
 ↑ᵀ d , c [ UnitT ] = UnitT
 ↑ᵀ d , c [ Bot ] = Bot
 ↑ᵀ d , c [ Dyn ] = Dyn
-↑ᵀ d , c [ Single x ] = Single (shift-val{d = d}{c = c} x)
+↑ᵀ d , c [ Single x A ] = Single (shift-val{d = d}{c = c} x) ↑ᵀ d , c [ A ]
 ↑ᵀ d , c [ Label x ] = Label x
 ↑ᵀ d , c [ Pi A A₁ ] = Pi ↑ᵀ d , c [ A ] ↑ᵀ d , (ℕ.suc c) [ A₁ ]
 ↑ᵀ d , c [ Sigma A A₁ ] = Sigma ↑ᵀ d , c [ A ] ↑ᵀ d , (ℕ.suc c) [ A₁ ]
@@ -67,11 +68,13 @@ shift-valu {n} {d} {c} {.(Cast (Var _) _ _)} UVarCast = UVarCast
 shift-valu {n} {d} {c} {.(Cast _ _ _)} (UValCast x) = UValCast (shift-val x)
 shift-valu {n} {d} {c} {.Blame} UBlame = UBlame
 
-shift-tyg {n} {d} {c} {.UnitT} GUnit = GUnit
-shift-tyg {n} {d} {c} {.(Label _)} GLabel = GLabel
-shift-tyg {n} {d} {c} {.(Pi Dyn Dyn)} GPi = GPi
-shift-tyg {n} {d} {c} {.(Sigma Dyn Dyn)} GSigma = GSigma
-shift-tyg {n} {d} {c} {Single V} GSingle = GSingle
+shift-tyg' {n} {d} {c} {.UnitT} GUnit = GUnit
+shift-tyg' {n} {d} {c} {.(Label _)} GLabel = GLabel
+shift-tyg' {n} {d} {c} {.(Pi Dyn Dyn)} GPi = GPi
+shift-tyg' {n} {d} {c} {.(Sigma Dyn Dyn)} GSigma = GSigma
+
+shift-tyg {n} {d} {c} {.(Single _ _)} (GSingle{tygG = tygG}) = GSingle{tygG = shift-tyg' tygG}
+shift-tyg {n} {d} {c} {T} (GG' x) = GG' (shift-tyg' x)
 
 -- shorthands
 ↑¹[_] : ∀ {n} → Exp {n} → Exp
@@ -92,6 +95,7 @@ shift-tyg {n} {d} {c} {Single V} GSingle = GSingle
 sub-val : ∀ {n k} {e e' : Exp {n}} {v : Val e'} → Val e → Val ([ k ↦ v ] e)
 sub-valu : ∀ {n k} {e e' : Exp {n}} {v : Val e'} → ValU e → ValU ([ k ↦ v ] e)
 sub-tyg : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyG A → TyG ([ k ↦ v ]ᵀ A)
+sub-tyg' : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyG' A → TyG' ([ k ↦ v ]ᵀ A)
 
 [_↦_]_ {n} {e} k v (Var x)
   with (_≟ᴺ_ x k)
@@ -112,7 +116,7 @@ sub-tyg : ∀ {n k} {A : Ty {n}} {e : Exp {n}} {v : Val e} → TyG A → TyG ([ 
 [ k ↦ s ]ᵀ UnitT = UnitT
 [ k ↦ s ]ᵀ Dyn = Dyn
 [ k ↦ s ]ᵀ Bot = Bot
-[_↦_]ᵀ_ {n} {e} k v (Single x) = Single (sub-val{n}{k}{e' = e}{v = v} x)
+[_↦_]ᵀ_ {n} {e} k v (Single x A) = Single (sub-val{n}{k}{e' = e}{v = v} x) ([ k ↦ v ]ᵀ A)
 [ k ↦ s ]ᵀ Label x = Label x
 [ k ↦ s ]ᵀ Pi T T₁ = Pi ([ k ↦ s ]ᵀ T) ([ ℕ.suc k ↦ (shift-val{d = ℤ.pos 1}{c = 0} s) ]ᵀ T₁)
 [ k ↦ s ]ᵀ Sigma T T₁ = Sigma ([ k ↦ s ]ᵀ T) ([ ℕ.suc k ↦ (shift-val{d = ℤ.pos 1}{c = 0} s) ]ᵀ T₁)
@@ -140,9 +144,10 @@ sub-valu {n} {k} {(Cast (Var x) _ _)} {e'} {v} UVarCast
 sub-valu {n} {k} {.(Cast _ _ _)} {e'} {v} (UValCast x) = UValCast (sub-val x)
 sub-valu {n} {k} {.Blame} {e'} {v} UBlame = UBlame
 
-sub-tyg {n} {k} {.UnitT} {e} {v} GUnit = GUnit
-sub-tyg {n} {k} {.(Label _)} {e} {v} GLabel = GLabel
-sub-tyg {n} {k} {.(Pi Dyn Dyn)} {e} {v} GPi = GPi
-sub-tyg {n} {k} {.(Sigma Dyn Dyn)} {e} {v} GSigma = GSigma
-sub-tyg {n} {k} {Single V} {e} {V'} GSingle = GSingle
+sub-tyg' {n} {k} {.UnitT} {e} {v} GUnit = GUnit
+sub-tyg' {n} {k} {.(Label _)} {e} {v} GLabel = GLabel
+sub-tyg' {n} {k} {.(Pi Dyn Dyn)} {e} {v} GPi = GPi
+sub-tyg' {n} {k} {.(Sigma Dyn Dyn)} {e} {v} GSigma = GSigma
 
+sub-tyg {n} {k} {.(Single _ _)} {e} {v} (GSingle{tygG = tygG}) = GSingle{tygG = sub-tyg' tygG}
+sub-tyg {n} {k} {T} {e} {v} (GG' x) = GG' (sub-tyg' x)

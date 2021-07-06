@@ -13,6 +13,7 @@ open import Relation.Nullary.Negation
 open import Relation.Binary.PropositionalEquality renaming (trans to ≡-trans)
 open import Data.Product
 open import Data.Sum
+open import Data.Empty
 
 open import Aux
 
@@ -29,12 +30,12 @@ data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data ValU {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data Ty {n : ℕ} : {i : Size} → Set
 data TyG {n : ℕ} : Ty {n} → Set
+data TyG' {n : ℕ} : Ty {n} → Set
 data TyB {n : ℕ} : Ty {n} → Set
 
 data Exp {n} where
   Var : {i : Size} → ℕ → Exp {n} {↑ˡ i}
   UnitE : {i : Size} → Exp {n} {↑ˡ i}
-  Blame : {i : Size} → Exp {n} {↑ˡ i}
   Abs : {i : Size} → Exp {n} {i} → Exp {n} {↑ˡ i}
   App : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LabI : {i : Size} → Fin n → Exp {n} {↑ˡ i}
@@ -43,17 +44,18 @@ data Exp {n} where
   ProdV : {i : Size} {e : Exp {n} {i}} → Val {n} {i} e → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetP : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetE : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
+  Blame : {i : Size} → Exp {n} {↑ˡ i}
   Cast : {i : Size} → Exp {n} {i} → Ty {n} {i} → Ty {n} {i} → Exp {n} {↑ˡ i}
 
 data Ty {n} where
-  Bot : {i : Size} → Ty {n} {↑ˡ i}
   UnitT : {i : Size} → Ty {n} {↑ˡ i}
-  Dyn : {i : Size} → Ty {n} {↑ˡ i}
-  Single : {i : Size} → {e : Exp {n} {i}} → Val {n} {i} e → Ty {n} {↑ˡ i}
+  Single : {i : Size} → {e : Exp {n} {i}} → Val {n} {i} e → Ty {n} {i} → Ty {n} {↑ˡ i}
   Label : {i : Size} → Subset n → Ty {n} {↑ˡ i}
   Pi : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   Sigma : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   CaseT : {i : Size} {s : Subset n} {e : Exp {n} {i}} → ValU {n} {i} e → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
+  Bot : {i : Size} → Ty {n} {↑ˡ i}
+  Dyn : {i : Size} → Ty {n} {↑ˡ i}
 
 data ValU {n} where
   UVar : {x : ℕ} → ValU (Var x)
@@ -74,35 +76,40 @@ data Val {n} where
   VCast : {e : Exp} {G : Ty {n}} → Val e → TyG G → Val (Cast e G Dyn)
   VCastFun : {e : Exp} {A A' B B' : Ty {n}}  → Val e → Val (Cast e (Pi A B) (Pi A' B'))
 
+data TyG' {n} where
+  GUnit : TyG' UnitT
+  GLabel : {s : Subset n} → TyG' (Label s)
+  GPi : TyG' (Pi Dyn Dyn)
+  GSigma : TyG' (Sigma Dyn Dyn)  
+
 data TyG {n} where
-  GSingle : {e : Exp {n}} {V : Val e} → TyG (Single V)
-  GUnit : TyG UnitT
-  GLabel : {s : Subset n} → TyG (Label s)
-  GPi : TyG (Pi Dyn Dyn)
-  GSigma : TyG (Sigma Dyn Dyn)
+  GSingle : {e : Exp {n}} {V : Val e} {G : Ty} {tygG : TyG' G} → TyG (Single V G)
+  GG' : {T : Ty {n}} → TyG' T → TyG T
 
 data TyB {n} where
   BUnit : TyB UnitT
   BLabel : {s : Subset n} → TyB (Label s)
-  BSingleLab : {l : Fin n} → TyB (Single (VLab{x = l}))
-  BSingleUnit : TyB (Single (VUnit))
---  BSingleCast : {e : Exp {n}} {V : Val e} {G : Ty {n}} {tyg : TyG G} → TyB (Single (VCast V tyg))
-  BDyn : TyB Dyn
+  BSingleLab : {l : Fin n} {L : Subset n} → TyB (Single (VLab{x = l}) (Label L))
+  BSingleUnit : TyB (Single (VUnit) UnitT)
+--  BDyn : TyB Dyn
 
 ------------------------------------------------------------------------
 -- predicates, relations, views
 
 data notSingle {n : ℕ} : Ty {n} → Set where
-  notsingle : {A : Ty {n}} → (∀ e → (W : Val e) → ¬ (A ≡ Single{e = e} W)) → notSingle A
+  notsingle : {A : Ty {n}} → (∀ e B → (W : Val e) → ¬ (A ≡ Single{e = e} W B)) → notSingle A
 
 data notCase{n : ℕ} : Ty {n} → Set where
   notcase : {A : Ty {n}} → (∀ e s → (U : ValU e) → (f : (∀ l → l ∈ s → Ty)) → ¬ (A ≡ CaseT{s = s} U f)) → notCase A
 
 notsingle-label : {n : ℕ} {L : Subset n} → notSingle (Label L)
-notsingle-label {n} {L} = notsingle λ e W ()
+notsingle-label {n} {L} = notsingle λ e A W ()
 
 notsingle-dyn : {n : ℕ} → notSingle {n} Dyn
-notsingle-dyn {n} = notsingle λ e W ()
+notsingle-dyn {n} = notsingle λ e A W ()
+
+notnotsingle-single : {n : ℕ} {e : Exp {n}} {V : Val e} {A : Ty {n}} → ¬ (notSingle (Single V A))
+notnotsingle-single {n} {e} {V} {A} (notsingle x) = contradiction refl (x e A V) 
 
 notcase-label : {n : ℕ} {L : Subset n} → notCase (Label L)
 notcase-label {n} = notcase λ e s U f ()
@@ -125,7 +132,7 @@ data _∈`_ {n : ℕ} : ℕ → Exp {n} → Set where
 
 -- variable in type
 data _∈`ᵀ_ {n} where
-  in-single : {x : ℕ} {e : Exp {n}} {v : Val e} → x ∈` e → x ∈`ᵀ Single v 
+  in-single : {x : ℕ} {e : Exp {n}} {A : Ty {n}} {v : Val e} → x ∈` e → x ∈`ᵀ Single v A 
   in-pi : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Pi A B
   in-pigma : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Sigma A B
   in-case : {x : ℕ} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} {e : Exp {n}} {U : ValU e} → (∃₂ λ l i → x ∈`ᵀ (f l i)) ⊎ x ∈` e → x ∈`ᵀ CaseT U f
@@ -167,35 +174,40 @@ piView : {n : ℕ} → (T : Ty {n}) → PiView T
 piView {n} Bot = other-v{neq = λ B C → λ ()}
 piView {n} UnitT = other-v{neq = λ B C → λ ()}
 piView {n} Dyn = other-v{neq = λ B C → λ ()}
-piView {n} (Single x) = other-v{neq = λ B C → λ ()}
+piView {n} (Single x A) = other-v{neq = λ B C → λ ()}
 piView {n} (Label x) = other-v{neq = λ B C → λ ()}
 piView {n} (Sigma T T₁) = other-v{neq = λ B C → λ ()}
 piView {n} (CaseT x f) = other-v{neq = λ B C → λ ()}
 piView {n} (Pi T T₁) = pi-v
 
 data SingleView {n : ℕ} : Ty {n} → Set where
-  single-v : {e : Exp {n}} {V : Val e} → SingleView (Single V)
-  other-v : {A : Ty {n}} {neq : ∀ e V → A ≢ Single{e = e} V} → SingleView A
+  single-v : {A : Ty {n}} {e : Exp {n}} {V : Val e} → SingleView (Single V A)
+  other-v : {A : Ty {n}} {neq : ∀ e B V → A ≢ Single{e = e} V B} → SingleView A
 
 singleView : {n : ℕ} → (T : Ty {n}) → SingleView T
-singleView {n} Bot = other-v{neq = λ e V → λ ()}
-singleView {n} UnitT = other-v{neq = λ e V → λ ()}
-singleView {n} Dyn = other-v{neq = λ e V → λ ()}
-singleView {n} (Label x) = other-v{neq = λ e V → λ ()}
-singleView {n} (Pi T T₁) = other-v{neq = λ e V → λ ()}
-singleView {n} (Sigma T T₁) = other-v{neq = λ e V → λ ()}
-singleView {n} (CaseT x f) = other-v{neq = λ e V → λ ()}
-singleView {n} (Single x) = single-v
+singleView {n} Bot = other-v{neq = λ e B V → λ ()}
+singleView {n} UnitT = other-v{neq = λ e B V → λ ()}
+singleView {n} Dyn = other-v{neq = λ e B V → λ ()}
+singleView {n} (Label x) = other-v{neq = λ e B V → λ ()}
+singleView {n} (Pi T T₁) = other-v{neq = λ e B V → λ ()}
+singleView {n} (Sigma T T₁) = other-v{neq = λ e B V → λ ()}
+singleView {n} (CaseT x f) = other-v{neq = λ e B V → λ ()}
+singleView {n} (Single x A) = single-v
 
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
 
+TyG'-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG' G) → x ≡ x'
+TyG'-uniqueness {n} {.UnitT} GUnit GUnit = refl
+TyG'-uniqueness {n} {.(Label _)} GLabel GLabel = refl
+TyG'-uniqueness {n} {.(Pi Dyn Dyn)} GPi GPi = refl
+TyG'-uniqueness {n} {.(Sigma Dyn Dyn)} GSigma GSigma = refl
+
 TyG-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG G) → x ≡ x'
-TyG-uniqueness {n} {.UnitT} GUnit GUnit = refl
-TyG-uniqueness {n} {.(Label _)} GLabel GLabel = refl
-TyG-uniqueness {n} {.(Pi Dyn Dyn)} GPi GPi = refl
-TyG-uniqueness {n} {.(Sigma Dyn Dyn)} GSigma GSigma = refl
-TyG-uniqueness {n} {Single V} GSingle GSingle = refl
+TyG-uniqueness {n} {.(Single _ _)} (GSingle{tygG = tygG}) (GSingle{tygG = tygG'})
+  rewrite TyG'-uniqueness tygG tygG' = refl  
+TyG-uniqueness {n} {G} (GG' x) (GG' x₁)
+  rewrite TyG'-uniqueness x x₁ = refl
 
 Val-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : Val {n} {i} e) → x ≡ x'
 Val-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} VUnit VUnit = refl
@@ -220,11 +232,11 @@ ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UValCast x) (UValCast x₁)
   rewrite (Val-uniqueness x x₁) = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.Blame} UBlame UBlame = refl
 
-TyG-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyG (Pi A B) → A ≡ Dyn × B ≡ Dyn
-TyG-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
+TyG'-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Pi A B) → A ≡ Dyn × B ≡ Dyn
+TyG'-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
 
-TyG-Sigma-inv : {n : ℕ} {A B : Ty {n}} → TyG (Sigma A B) → A ≡ Dyn × B ≡ Dyn
-TyG-Sigma-inv {n} {.Dyn} {.Dyn} GSigma = refl , refl
+TyG'-Sigma-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Sigma A B) → A ≡ Dyn × B ≡ Dyn
+TyG'-Sigma-inv {n} {.Dyn} {.Dyn} GSigma = refl , refl
 
 Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} {v : Val e} → Val (ProdV v e') → Val e'
 Val-ProdV-inv {n} {e} {e'} {v} (VProd .v val) = val
@@ -239,8 +251,26 @@ Pi-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 Sigma-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Sigma A B ≡ Sigma A' B' → A ≡ A' × B ≡ B'
 Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 
-Single-equiv : {n : ℕ} {e e' : Exp {n}} {V : Val e} {V' : Val e'} → Single V ≡ Single V' → e ≡ e'
-Single-equiv {n} {e} {.e} {V} {.V} refl = refl
+Single-equiv : {n : ℕ} {e e' : Exp {n}} {A A' : Ty {n}} {V : Val e} {V' : Val e'} → Single V A ≡ Single V' A' → e ≡ e'
+Single-equiv {n} {e} {.e} {A} {.A} {V} {.V} refl = refl
+
+notsingle×TyB⊂TyG' : {n : ℕ} {A : Ty {n}} → notSingle A → TyB A → TyG' A
+notsingle×TyB⊂TyG' (notsingle neq) BUnit = GUnit
+notsingle×TyB⊂TyG' (notsingle neq) BLabel = GLabel
+notsingle×TyB⊂TyG' (notsingle neq) (BSingleLab{l = l}{L = L}) = contradiction refl (neq (LabI l) (Label L) (VLab))
+notsingle×TyB⊂TyG' (notsingle neq) BSingleUnit = contradiction refl (neq UnitE UnitT VUnit)
+
+TyG'⇒notSingle : {n : ℕ} {A : Ty {n}} → TyG' A → notSingle A
+TyG'⇒notSingle {n} {.UnitT} GUnit = notsingle λ e B W → λ ()
+TyG'⇒notSingle {n} {.(Label _)} GLabel = notsingle λ e B W → λ ()
+TyG'⇒notSingle {n} {.(Pi Dyn Dyn)} GPi = notsingle λ e B W → λ ()
+TyG'⇒notSingle {n} {.(Sigma Dyn Dyn)} GSigma = notsingle λ e B W → λ ()
+
+TyB⊂TyG : {n : ℕ} {A : Ty {n}} → TyB A → TyG A
+TyB⊂TyG BUnit = GG' GUnit
+TyB⊂TyG BLabel = GG' GLabel
+TyB⊂TyG BSingleLab = GSingle {tygG = GLabel}
+TyB⊂TyG BSingleUnit = GSingle {tygG = GUnit}
 
 ------------------------------------------------------------------------
 -- decidable
@@ -252,31 +282,65 @@ _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 
 -- Decidable predicates
 Val?_ : {n : ℕ} (e : Exp {n}) → Dec (Val e)
+TyG'?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG' A)
 TyG?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG A)
+TyB?_ : {n : ℕ} (A : Ty {n}) → Dec (TyB A)
 
 -- Predicate implementations
-TyG? Bot = no λ ()
-TyG? UnitT = yes GUnit
-TyG? Dyn = no (λ ())
-TyG? Single x = yes GSingle
-TyG? Label x = yes GLabel
-TyG? Pi x x₁
+TyG'? Bot = no λ ()
+TyG'? UnitT = yes GUnit
+TyG'? Dyn = no (λ ())
+TyG'? Single x A = no λ ()
+TyG'? Label x = yes GLabel
+TyG'? Pi x x₁
   with x ≡ᵀ? x₁
-...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG-Pi-inv x₂)) (sym (proj₂ (TyG-Pi-inv x₂)))) ¬p)
+...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG'-Pi-inv x₂)) (sym (proj₂ (TyG'-Pi-inv x₂)))) ¬p)
 ...  | yes p
      rewrite (sym p)
      with x ≡ᵀ? Dyn
 ...     | yes p' rewrite p' = yes GPi
-...     | no ¬p' = no λ x₂ → contradiction (proj₁ (TyG-Pi-inv x₂)) ¬p'
-TyG? Sigma x x₁
+...     | no ¬p' = no λ x₂ → contradiction (proj₁ (TyG'-Pi-inv x₂)) ¬p'
+TyG'? Sigma x x₁
   with x ≡ᵀ? x₁
-...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG-Sigma-inv x₂)) (sym (proj₂ (TyG-Sigma-inv x₂)))) ¬p)
+...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG'-Sigma-inv x₂)) (sym (proj₂ (TyG'-Sigma-inv x₂)))) ¬p)
 ...  | yes p
      rewrite (sym p)
      with x ≡ᵀ? Dyn
 ...     | yes p' rewrite p' = yes GSigma
-...     | no ¬p' = no  λ x₂ → contradiction (proj₁ (TyG-Sigma-inv x₂)) ¬p'  
-TyG? CaseT x f = no λ ()
+...     | no ¬p' = no  λ x₂ → contradiction (proj₁ (TyG'-Sigma-inv x₂)) ¬p'  
+TyG'? CaseT x f = no λ ()
+
+TyG? UnitT = yes (GG' GUnit)
+TyG? Label x = yes (GG' GLabel)
+
+TyG? Single x G
+  with TyG'? G
+... | yes p = yes (GSingle{tygG = p})
+... | no ¬p = no ϱ
+    where ϱ : TyG (Single x G) → Data.Empty.⊥
+          ϱ (GSingle{tygG = tygG}) = contradiction tygG ¬p
+TyG? Pi G G₁
+  with TyG'? (Pi G G₁)
+...  | yes p = yes (GG' p)
+...  | no ¬p = no ϱ
+     where ϱ : TyG (Pi G G₁) → Data.Empty.⊥
+           ϱ (GG' x) = contradiction x ¬p
+TyG? Sigma G G₁
+  with TyG'? (Sigma G G₁)
+...  | yes p = yes (GG' p)
+...  | no ¬p = no ϱ
+     where ϱ : TyG (Sigma G G₁) → Data.Empty.⊥
+           ϱ (GG' x) = contradiction x ¬p
+
+TyG? CaseT x f = no ϱ
+  where ϱ : TyG (CaseT x f) → Data.Empty.⊥
+        ϱ (GG' x) = contradiction x λ ()
+TyG? Bot = no ϱ
+  where ϱ : TyG Bot → Data.Empty.⊥
+        ϱ (GG' x) = contradiction x λ ()
+TyG? Dyn = no ϱ
+  where ϱ : TyG Dyn → Data.Empty.⊥
+        ϱ (GG' x) = contradiction x λ ()
 
 Val? LetP e e₁ = no (λ ())
 Val? LetE e e₁ = no (λ ())
@@ -319,7 +383,34 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
         ...  | fst , inj₁ (fst₁ , snd) = contradiction snd ¬eq
         ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth) = contradiction sxth (neq thd fth)
 
+TyB? UnitT = yes BUnit
+TyB? Label x = yes BLabel
+TyB? Single VLab (Label x) = yes BSingleLab
+TyB? Single VUnit UnitT = yes BSingleUnit
 
+TyB? Single VUnit (Single x A) = no λ ()
+TyB? Single VUnit (Label x) = no λ ()
+TyB? Single VUnit (Pi A A₁) = no λ ()
+TyB? Single VUnit (Sigma A A₁) = no λ ()
+TyB? Single VUnit (CaseT x f) = no λ ()
+TyB? Single VUnit Bot = no λ ()
+TyB? Single VUnit Dyn = no λ ()
+TyB? Single VLab UnitT = no λ ()
+TyB? Single VLab (Single x A) = no λ ()
+TyB? Single VLab (Pi A A₁) = no λ ()
+TyB? Single VLab (Sigma A A₁) = no λ ()
+TyB? Single VLab (CaseT x f) = no λ ()
+TyB? Single VLab Bot = no λ ()
+TyB? Single VLab Dyn = no λ ()
+TyB? Single VFun A = no λ ()
+TyB? Single (VProd x x₁) A = no λ ()
+TyB? Single (VCast x x₁) A = no λ ()
+TyB? Single (VCastFun x) A = no λ ()
+TyB? Pi A A₁ = no λ ()
+TyB? Sigma A A₁ = no λ ()
+TyB? CaseT x f = no λ ()
+TyB? Bot = no λ ()
+TyB? Dyn = no λ ()
 
 -- Syntactic equality implementations
 UnitE ≡ᵉ? UnitE = yes refl
@@ -586,12 +677,16 @@ Label L ≡ᵀ? Label L'
   ϱ : ¬(Label L ≡ Label L')
   ϱ refl = contradiction refl ¬p
 
-Single{e = e} V ≡ᵀ? Single{e = e'} V'
-  with e ≡ᵉ? e'
-...  | yes p rewrite p | Val-uniqueness V V' = yes refl
-...  | no ¬p  = no ϱ
+Single{e = e} V A ≡ᵀ? Single{e = e'} V' A'
+  with e ≡ᵉ? e' | A ≡ᵀ? A'
+...  | yes p | yes p' rewrite p | p' | Val-uniqueness V V' = yes refl
+...  | no ¬p | _ = no ϱ
   where
-  ϱ : ¬ (Single V ≡ Single V')
+  ϱ : ¬ (Single V A ≡ Single V' A')
+  ϱ refl = contradiction refl ¬p
+...  | _ | no ¬p = no ϱ
+  where
+  ϱ : ¬ (Single V A ≡ Single V' A')
   ϱ refl = contradiction refl ¬p    
 Pi nA B ≡ᵀ? Pi nA' B'
   with nA ≡ᵀ? nA' | B ≡ᵀ? B'
@@ -638,58 +733,57 @@ _≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = .i}{s = s'}
 
 Bot ≡ᵀ? UnitT = no λ ()
 Bot ≡ᵀ? Dyn = no λ ()
-Bot ≡ᵀ? Single V = no λ ()
+Bot ≡ᵀ? Single V A = no λ ()
 Bot ≡ᵀ? Label L = no λ ()
 Bot ≡ᵀ? Pi nA B = no λ ()
 Bot ≡ᵀ? Sigma nA' B' = no λ ()
 Bot ≡ᵀ? CaseT U f = no λ ()
 UnitT ≡ᵀ? Bot = no λ ()
 UnitT ≡ᵀ? Dyn = no λ ()
-UnitT ≡ᵀ? Single V = no λ ()
+UnitT ≡ᵀ? Single V A = no λ ()
 UnitT ≡ᵀ? Label L = no λ ()
 UnitT ≡ᵀ? Pi nA B = no λ ()
 UnitT ≡ᵀ? Sigma nA' B' = no λ ()
 UnitT ≡ᵀ? CaseT U f = no λ ()
 Dyn ≡ᵀ? Bot = no λ ()
 Dyn ≡ᵀ? UnitT = no λ ()
-Dyn ≡ᵀ? Single V = no λ ()
+Dyn ≡ᵀ? Single V A = no λ ()
 Dyn ≡ᵀ? Label L = no λ ()
 Dyn ≡ᵀ? Pi nA B = no λ ()
 Dyn ≡ᵀ? Sigma nA' B' = no λ ()
 Dyn ≡ᵀ? CaseT U f = no λ ()
-Single V ≡ᵀ? Bot = no λ ()
-Single V ≡ᵀ? UnitT = no λ ()
-Single V ≡ᵀ? Dyn = no λ ()
-Single V ≡ᵀ? Label L = no λ ()
-Single V ≡ᵀ? Pi nA B = no λ ()
-Single V ≡ᵀ? Sigma nA' B' = no λ ()
-Single V ≡ᵀ? CaseT U f = no λ ()
+Single V A ≡ᵀ? Bot = no λ ()
+Single V A ≡ᵀ? UnitT = no λ ()
+Single V A ≡ᵀ? Dyn = no λ ()
+Single V A ≡ᵀ? Label L = no λ ()
+Single V A ≡ᵀ? Pi nA B = no λ ()
+Single V A ≡ᵀ? Sigma nA' B' = no λ ()
+Single V A ≡ᵀ? CaseT U f = no λ ()
 Label L ≡ᵀ? Bot = no λ ()
 Label L ≡ᵀ? UnitT = no λ ()
 Label L ≡ᵀ? Dyn = no λ ()
-Label L ≡ᵀ? Single V = no λ ()
+Label L ≡ᵀ? Single V A = no λ ()
 Label L ≡ᵀ? Pi nA B = no λ ()
 Label L ≡ᵀ? Sigma nA' B' = no λ ()
 Label L ≡ᵀ? CaseT U f = no λ ()
 Pi nA B ≡ᵀ? Bot = no λ ()
 Pi nA B ≡ᵀ? UnitT = no λ ()
 Pi nA B ≡ᵀ? Dyn = no λ ()
-Pi nA B ≡ᵀ? Single V = no λ ()
+Pi nA B ≡ᵀ? Single V A = no λ ()
 Pi nA B ≡ᵀ? Label L = no λ ()
 Pi nA B ≡ᵀ? Sigma nA' B' = no λ ()
 Pi nA B ≡ᵀ? CaseT U f = no λ ()
 Sigma nA' B' ≡ᵀ? Bot = no λ ()
 Sigma nA' B' ≡ᵀ? UnitT = no λ ()
 Sigma nA' B' ≡ᵀ? Dyn = no λ ()
-Sigma nA' B' ≡ᵀ? Single V = no λ ()
+Sigma nA' B' ≡ᵀ? Single V A = no λ ()
 Sigma nA' B' ≡ᵀ? Label L = no λ ()
 Sigma nA' B' ≡ᵀ? Pi nA B = no λ ()
 Sigma nA' B' ≡ᵀ? CaseT U f = no λ ()
 CaseT U f ≡ᵀ? Bot = no λ ()
 CaseT U f ≡ᵀ? UnitT = no λ ()
 CaseT U f ≡ᵀ? Dyn = no λ ()
-CaseT U f ≡ᵀ? Single V = no λ ()
+CaseT U f ≡ᵀ? Single V A = no λ ()
 CaseT U f ≡ᵀ? Label L = no λ ()
 CaseT U f ≡ᵀ? Pi nA B = no λ ()
 CaseT U f ≡ᵀ? Sigma nA' B' = no λ ()
-
