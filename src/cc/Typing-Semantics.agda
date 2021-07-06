@@ -353,10 +353,10 @@ data ¬TyG×TyNf {n : ℕ} : Ty {n} → Set where
 ------------------------------------------------------------------------
 -- Big-step semantics
 
-data Result {n : ℕ} : Set where
-  RValue : {e : Exp {n}} → Val {n} e → Result {n}
-  RBlame : Result {n}
-  RStuck : Result {n}
+data Result {n : ℕ} {i : Size} : Set where
+  RValue : {e : Exp {n} {i}} → Val {n} e → Result {n} {i}
+  RBlame : Result {n} {i}
+  RStuck : Result {n} {i}
 
 data ResultType {n : ℕ} : Set where
   RNf : {A : Ty {n}} → TyNf {n} A → ResultType {n}
@@ -371,141 +371,11 @@ access {n} {[]} m [] = RStuck
 access {n} {x ∷ Γ} zero (px ∷ px₁) = RValue px
 access {n} {x ∷ Γ} (ℕ.suc m) (px ∷ px₁) = access m px₁
 
-
 -- Evaluate expression
 _⇓ : {n : ℕ} → Exp {n} → Result {n}
 _⇓ᵀ : {n : ℕ} → (A : Ty {n}) → ResultType {n}
-
-Var x ⇓ = RStuck
-UnitE ⇓ = RValue VUnit
-Abs e ⇓ = RValue (VFun{N = e})
-LabI x ⇓ = RValue (VLab{x = x})
-Blame ⇓ = RBlame
-
-_⇓{n = n} (App (Cast (Abs e) (Pi A B) (Pi A' B')) e₁)
-  with (App e (Cast e₁ A' A)) ⇓
-...  | blub = {!!}  -- Cast  ([ 0 ↦ (Cast e₁ A' A) ]ᵀ B) ([ 0 ↦ e₁ ]ᵀ B') ⇓
-_⇓{n = n} (App (Cast e' (Pi A B) (Pi A' B')) e₁) = ?
-{-
-  with e ⇓
-... | RBlame = RBlame
-... | RStuck = RStuck
-... | RValue{e = vₑ} v
-    with v
-...    | VUnit = RStuck
-...    | VLab = RStuck
-...    | VProd x x₁ = RStuck
-...    | VCast x x₁ = RStuck
-_⇓{n = n} (App e e₁) | RValue{e = Cast vₑ (Pi A B) (Pi A' B')} v | VCastFun{e = xₑ}{A = .A}{A' = .A'}{B = .B}{B' = .B'} x = Cast (App vₑ (Cast e₁ A' A)) ([ 0 ↦ (Cast e₁ A' A) ]ᵀ B) ([ 0 ↦ e₁ ]ᵀ B') ⇓
--}
---  Γ ∶ LetE (Cast wₑ A' A) (Cast (App xₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓ -- Γ ∶ LetE (Cast wₑ A' A) (Cast (App vₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓
--- _⇓ (App e e₁) | RValue{e = Abs N} v | RValue w | VFun = {!rec w N!} -- (w ∷ v-Γ) ∶ N ⇓
-
-
-
-{-
-_⇓{n = n} (App e e₁)
-  with e ⇓ | e₁ ⇓
-... | RBlame | _ = RBlame
-... | _ | RBlame = RBlame
-... | RStuck | _ = RStuck
-... | _ | RStuck = RStuck
-... | RValue{e = vₑ} v | RValue{e = wₑ} w
-    with v
-...    | VUnit = RStuck
-...    | VLab = RStuck
-...    | VProd x x₁ = RStuck
-...    | VCast x x₁ = RStuck
-_⇓{n = n} (App e e₁) | RValue{e = Cast vₑ (Pi A B) (Pi A' B')} v | RValue{e = wₑ} w | VCastFun{e = xₑ}{A = .A}{A' = .A'}{B = .B}{B' = .B'} x = Cast (App vₑ (Cast wₑ A' A)) ([ 0 ↦ (Cast wₑ A' A) ]ᵀ B) ([ 0 ↦ wₑ ]ᵀ B') ⇓
---  Γ ∶ LetE (Cast wₑ A' A) (Cast (App xₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓ -- Γ ∶ LetE (Cast wₑ A' A) (Cast (App vₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓
-_⇓ (App e e₁) | RValue{e = Abs N} v | RValue w | VFun = {!rec w N!} -- (w ∷ v-Γ) ∶ N ⇓
--}
-
-{-
-{-
-_∶_⇓{n = n} Γ (App (Abs e) e₁)
-  with Γ ∶ e₁ ⇓
-...  | RStuck = RStuck  
-...  | RBlame = RBlame
-...  | RValue v = (v ∷ Γ) ∶ e ⇓  
-_∶_⇓{n = n} Γ (App (Cast e A B) e₁)
-  with Γ ∶ e₁ ⇓ | Γ ∶ A ⇓ᵀ | Γ ∶ B ⇓ᵀ
-...  | RStuck | _ | _ = RStuck  
-...  | RBlame | _ | _ = RBlame
-...  | _ | RStuck | _ = RStuck
-...  | _ | _ | RStuck = RStuck
-...  | _ | RBot | _ = RBlame
-...  | _ | _ | RBot = RBlame
-...  | RValue{e = wₑ} w | RNf (NfPi{A = A₁}{B = B₁}) | RNf (NfPi{A = A₁'}{B = B₁'}) = Γ ∶ Cast {!!} {!!} {!!} ⇓ --  Γ ∶ LetE (Cast wₑ A₁' A₁) (Cast (App e (Var 0)) B₁ ([ 0 ↦ wₑ ]ᵀ B₁')) ⇓ 
-...  | RValue v | _ | _ = RStuck
--}
-
-Γ ∶ CaseE{s = s} e f ⇓
-  with Γ ∶ e ⇓
-...  | RStuck = RStuck  
-...  | RBlame = RBlame
-...  | RValue v
-     with v
-...     | VUnit = RStuck
-...     | VFun = RStuck
-...     | VProd w w₁ = RStuck
-...     | VCast y x₁ = RStuck
-...     | VCastFun z = RStuck
-...     | VLab {x = l}
-        with l ∈? s
-...        | yes ins = Γ ∶ (f l ins) ⇓
-...        | no ¬ins = RStuck
-
-_∶_⇓{n = n}{Γ = Γ} v-Γ (Prod e e₁)
-  with v-Γ ∶ e ⇓ | λ vₑ → (λ v → _∶_⇓{n = n}{Γ = vₑ ∷ Γ} (v ∷ v-Γ) e₁)
-...  | RStuck | rec = RStuck
-...  | RBlame | rec = RBlame
-...  | RValue{e = vₑ} v | rec
-     with rec vₑ v
-...     | RBlame = RBlame
-...     | RStuck = RStuck
-...     | RValue w = RValue (VProd v w)
-
-{-
-Γ ∶ ProdV x e ⇓
-  with Γ ∶ e ⇓
-...  | RStuck = RStuck
-...  | RBlame = RBlame
-...  | RValue v = RValue (VProd x v)
--}
-
-_∶_⇓{n = n}{Γ = Γ} v-Γ (LetP e e₁)
-  with v-Γ ∶ e ⇓ | λ wₑ' wₑ → (λ w' w → _∶_⇓{n = n}{Γ = wₑ' ∷ (wₑ ∷ Γ)} (w' ∷ (w ∷ v-Γ)) e₁)
-...  | RStuck | rec = RStuck
-...  | RBlame | rec = RBlame
-...  | RValue v | rec
-     with v
-...     | VUnit = RStuck
-...     | VLab = RStuck
-...     | VFun = RStuck
-...     | VCast w x = RStuck
-...     | VCastFun w = RStuck
-...     | VProd{e = wₑ}{e' = wₑ'} w w' = rec wₑ' wₑ w' w
-
-_∶_⇓{Γ = Γ} v-Γ (LetE e e₁)
-  with v-Γ ∶ e ⇓
-...  | RStuck = RStuck
-...  | RBlame = RBlame
-...  | RValue{e = vₑ} v = _∶_⇓ {Γ = vₑ ∷ Γ} (v ∷ v-Γ) (e₁)
-
-Γ ∶ Cast e A B ⇓
-  with Γ ∶ e ⇓ | Γ ∶ A ⇓ᵀ | Γ ∶ B ⇓ᵀ
-...  | RBlame | _ | _ = RBlame  
-...  | _ | RBot | _ = RBlame
-...  | _ | _ | RBot = RBlame
-...  | RStuck | _ | _ = RStuck
-...  | _ | RStuck | _ = RStuck
-...  | _ | _ | RStuck = RStuck
-...  | RValue v | RNf nfA | RNf nfB = {!!} -- cast-eval v nfA nfB
-
-{-
--- Evaluate (V : nA ⇒ nB)
 cast-eval : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → Val e → TyNf A → TyNf B → Result {n}
+
 cast-eval {n} {e} {A} {B} V nfA nfB
   with TyG? A | TyG? B
 ...  | yes tygA | yes tygB
@@ -539,7 +409,7 @@ cast-eval {n} {e} {A} {Sigma B₁ B₂} V nfA nfB | yes tygA | no ¬tygB | no ¬
 ...     | VFun = RStuck  -- No reduction for () : Sigma ⇒ Sigma
 ...     | VCast y z = RStuck  -- No reduction for (V : G ⇒ *) : Sigma ⇒ Sigma
 ...     | VCastFun y = RStuck  -- No reduction for (V : Pi ⇒ Pi) : Sigma ⇒ Sigma
-...     | VProd{e = yₑ}{e' = zₑ} y z = _∶_⇓ [] (Prod (Cast yₑ Dyn B₁) (Cast zₑ Dyn B₂))
+...     | VProd{e = yₑ}{e' = zₑ} y z = (Prod (Cast yₑ Dyn B₁) (Cast zₑ Dyn B₂)) ⇓
 
 cast-eval {n} {e} {A} {B} V nfA nfB | no ¬tygA | yes tygB
   with A ≡ᵀ? Dyn
@@ -581,6 +451,174 @@ cast-eval {n} {e} {A} {B} V nfA nfB | no ¬tygA | no ¬tygB | no ¬p
   with A ≡ᵀ? Dyn
 ...  | yes q = {!!}
 ...  | no ¬q = {!!}
+
+
+{-
+_⇓{n = n}{i = i} (App (Cast (Abs e) (Pi A B) (Pi A' B')) e₁) = (Cast e₁ A' A) ⇓
+_⇓{n = n}{i = i} (App e e₁) = RBlame
+--  with _⇓{n = n}{i = i}
+-- ...  | blub = {!!}  -- Cast  ([ 0 ↦ (Cast e₁ A' A) ]ᵀ B) ([ 0 ↦ e₁ ]ᵀ B') ⇓
+-}
+{-
+  with e ⇓
+... | RBlame = RBlame
+... | RStuck = RStuck
+... | RValue{e = vₑ} v
+    with v
+...    | VUnit = RStuck
+...    | VLab = RStuck
+...    | VProd x x₁ = RStuck
+...    | VCast x x₁ = RStuck
+_⇓{n = n} (App e e₁) | RValue{e = Cast vₑ (Pi A B) (Pi A' B')} v | VCastFun{e = xₑ}{A = .A}{A' = .A'}{B = .B}{B' = .B'} x = Cast (App vₑ (Cast e₁ A' A)) ([ 0 ↦ (Cast e₁ A' A) ]ᵀ B) ([ 0 ↦ e₁ ]ᵀ B') ⇓
+-}
+--  Γ ∶ LetE (Cast wₑ A' A) (Cast (App xₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓ -- Γ ∶ LetE (Cast wₑ A' A) (Cast (App vₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓
+-- _⇓ (App e e₁) | RValue{e = Abs N} v | RValue w | VFun = {!rec w N!} -- (w ∷ v-Γ) ∶ N ⇓
+
+Var x ⇓ = RStuck
+UnitE ⇓ = RValue VUnit
+Abs e ⇓ = RValue (VFun{N = e})
+LabI x ⇓ = RValue (VLab{x = x})
+Blame ⇓ = RBlame
+
+Cast e A B ⇓
+  with e ⇓ | A ⇓ᵀ | B ⇓ᵀ
+...  | RBlame | _ | _ = RBlame  
+...  | _ | RBot | _ = RBlame
+...  | _ | _ | RBot = RBlame
+...  | RStuck | _ | _ = RStuck
+...  | _ | RStuck | _ = RStuck
+...  | _ | _ | RStuck = RStuck
+...  | RValue v | RNf nfA | RNf nfB = {!!} -- RStuck -- cast-eval v nfA nfB
+
+CaseE{s = s} e f ⇓
+  with e ⇓
+...  | RStuck = RStuck  
+...  | RBlame = RBlame
+...  | RValue v
+     with v
+...     | VUnit = RStuck
+...     | VFun = RStuck
+...     | VProd w w₁ = RStuck
+...     | VCast y x₁ = RStuck
+...     | VCastFun z = RStuck
+...     | VLab {x = l}
+        with l ∈? s
+...        | yes ins = (f l ins) ⇓
+...        | no ¬ins = RStuck
+
+(Prod e e₁) ⇓
+  with  e ⇓ | λ vₑ → ([ 0 ↦ vₑ ] e₁) ⇓
+...  | RStuck | rec = RStuck
+...  | RBlame | rec = RBlame
+...  | RValue{e = vₑ} v | rec
+     with rec vₑ
+...     | RBlame = RBlame
+...     | RStuck = RStuck
+...     | RValue w = RValue (VProd v w)
+
+
+{-
+Γ ∶ ProdV x e ⇓
+  with Γ ∶ e ⇓
+...  | RStuck = RStuck
+...  | RBlame = RBlame
+...  | RValue v = RValue (VProd x v)
+-}
+
+{-
+_∶_⇓{n = n}{Γ = Γ} v-Γ (LetP e e₁)
+  with v-Γ ∶ e ⇓ | λ wₑ' wₑ → (λ w' w → _∶_⇓{n = n}{Γ = wₑ' ∷ (wₑ ∷ Γ)} (w' ∷ (w ∷ v-Γ)) e₁)
+...  | RStuck | rec = RStuck
+...  | RBlame | rec = RBlame
+...  | RValue v | rec
+     with v
+...     | VUnit = RStuck
+...     | VLab = RStuck
+...     | VFun = RStuck
+...     | VCast w x = RStuck
+...     | VCastFun w = RStuck
+...     | VProd{e = wₑ}{e' = wₑ'} w w' = rec wₑ' wₑ w' w
+
+_∶_⇓{Γ = Γ} v-Γ (LetE e e₁)
+  with v-Γ ∶ e ⇓
+...  | RStuck = RStuck
+...  | RBlame = RBlame
+...  | RValue{e = vₑ} v = _∶_⇓ {Γ = vₑ ∷ Γ} (v ∷ v-Γ) (e₁)
+-}
+
+
+
+
+UnitT ⇓ᵀ = RNf NfUnit
+Single e A ⇓ᵀ
+  with TyB? A | Val? e
+...  | no ¬p | _ = RStuck
+...  | yes BSingleLab | _ = RStuck
+...  | yes BSingleUnit | _ = RStuck
+...  | yes BUnit | yes v = RNf (NfSingle{B = A}{e = e}{V = v}{tybB = BUnit}{notsingle = notsingle λ e B → λ ()})
+...  | yes BLabel | yes v = RNf (NfSingle{B = A}{e = e}{V = v}{tybB = BLabel}{notsingle = notsingle λ e B → λ ()})
+...  | _ | no ¬v = RStuck
+Label x ⇓ᵀ = RNf (NfLabel{s = x})
+Pi A A₁ ⇓ᵀ = RNf (NfPi{A = A}{B = A₁})
+Sigma A A₁ ⇓ᵀ = RNf (NfSigma{A = A}{B = A₁})
+Bot ⇓ᵀ = RBot
+Dyn ⇓ᵀ = RNf NfDyn
+CaseT{s = s} e f ⇓ᵀ
+  with e ⇓ | λ l ins → (f l ins) ⇓ᵀ
+...  | RBlame | rec = RBot
+...  | RStuck | rec = RStuck
+...  | RValue VUnit | rec = RStuck
+...  | RValue VFun | rec = RStuck
+...  | RValue (VProd x₁ x₂) | rec = RStuck
+...  | RValue (VCast x₁ x₂) | rec = RStuck
+...  | RValue (VCastFun x₁) | rec = RStuck
+...  | RValue (VLab{x = y}) | rec
+     with y ∈? s
+...     | yes ins = rec y ins
+...     | no ¬ins = RStuck
+
+
+{-
+_⇓{n = n} (App e e₁)
+  with e ⇓ | e₁ ⇓
+... | RBlame | _ = RBlame
+... | _ | RBlame = RBlame
+... | RStuck | _ = RStuck
+... | _ | RStuck = RStuck
+... | RValue{e = vₑ} v | RValue{e = wₑ} w
+    with v
+...    | VUnit = RStuck
+...    | VLab = RStuck
+...    | VProd x x₁ = RStuck
+...    | VCast x x₁ = RStuck
+_⇓{n = n} (App e e₁) | RValue{e = Cast vₑ (Pi A B) (Pi A' B')} v | RValue{e = wₑ} w | VCastFun{e = xₑ}{A = .A}{A' = .A'}{B = .B}{B' = .B'} x = Cast (App vₑ (Cast wₑ A' A)) ([ 0 ↦ (Cast wₑ A' A) ]ᵀ B) ([ 0 ↦ wₑ ]ᵀ B') ⇓
+--  Γ ∶ LetE (Cast wₑ A' A) (Cast (App xₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓ -- Γ ∶ LetE (Cast wₑ A' A) (Cast (App vₑ (Var 0)) B ([ 0 ↦ w ]ᵀ B')) ⇓
+_⇓ (App e e₁) | RValue{e = Abs N} v | RValue w | VFun = {!rec w N!} -- (w ∷ v-Γ) ∶ N ⇓
+-}
+
+{-
+{-
+_∶_⇓{n = n} Γ (App (Abs e) e₁)
+  with Γ ∶ e₁ ⇓
+...  | RStuck = RStuck  
+...  | RBlame = RBlame
+...  | RValue v = (v ∷ Γ) ∶ e ⇓  
+_∶_⇓{n = n} Γ (App (Cast e A B) e₁)
+  with Γ ∶ e₁ ⇓ | Γ ∶ A ⇓ᵀ | Γ ∶ B ⇓ᵀ
+...  | RStuck | _ | _ = RStuck  
+...  | RBlame | _ | _ = RBlame
+...  | _ | RStuck | _ = RStuck
+...  | _ | _ | RStuck = RStuck
+...  | _ | RBot | _ = RBlame
+...  | _ | _ | RBot = RBlame
+...  | RValue{e = wₑ} w | RNf (NfPi{A = A₁}{B = B₁}) | RNf (NfPi{A = A₁'}{B = B₁'}) = Γ ∶ Cast {!!} {!!} {!!} ⇓ --  Γ ∶ LetE (Cast wₑ A₁' A₁) (Cast (App e (Var 0)) B₁ ([ 0 ↦ wₑ ]ᵀ B₁')) ⇓ 
+...  | RValue v | _ | _ = RStuck
+-}
+
+
+
+{-
+
 -}
 
 
