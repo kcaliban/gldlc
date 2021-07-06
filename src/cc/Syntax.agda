@@ -26,12 +26,7 @@ open import Size renaming (↑_ to ↑ˡ)
 -- Syntax definitions
 
 data Exp {n : ℕ} : {i : Size} → Set
-data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
-data ValU {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data Ty {n : ℕ} : {i : Size} → Set
-data TyG {n : ℕ} : Ty {n} → Set
-data TyG' {n : ℕ} : Ty {n} → Set
-data TyB {n : ℕ} : Ty {n} → Set
 
 data Exp {n} where
   Var : {i : Size} → ℕ → Exp {n} {↑ˡ i}
@@ -39,9 +34,9 @@ data Exp {n} where
   Abs : {i : Size} → Exp {n} {i} → Exp {n} {↑ˡ i}
   App : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LabI : {i : Size} → Fin n → Exp {n} {↑ˡ i}
-  CaseE : {i : Size} → {s : Subset n} {e : Exp {n} {i}} → ValU {n} {i} e → (f : ∀ l → l ∈ s → Exp {n} {i}) → Exp {n} {↑ˡ i}
+  CaseE : {i : Size} → {s : Subset n} → Exp {n} {i} → (f : ∀ l → l ∈ s → Exp {n} {i}) → Exp {n} {↑ˡ i}
   Prod : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
-  ProdV : {i : Size} {e : Exp {n} {i}} → Val {n} {i} e → Exp {n} {i} → Exp {n} {↑ˡ i}
+  ProdV : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetP : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetE : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   Blame : {i : Size} → Exp {n} {↑ˡ i}
@@ -49,13 +44,19 @@ data Exp {n} where
 
 data Ty {n} where
   UnitT : {i : Size} → Ty {n} {↑ˡ i}
-  Single : {i : Size} → {e : Exp {n} {i}} → Val {n} {i} e → Ty {n} {i} → Ty {n} {↑ˡ i}
+  Single : {i : Size} → Exp {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   Label : {i : Size} → Subset n → Ty {n} {↑ˡ i}
   Pi : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   Sigma : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
-  CaseT : {i : Size} {s : Subset n} {e : Exp {n} {i}} → ValU {n} {i} e → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
+  CaseT : {i : Size} {s : Subset n} → Exp {n} {i} → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
   Bot : {i : Size} → Ty {n} {↑ˡ i}
   Dyn : {i : Size} → Ty {n} {↑ˡ i}
+
+data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
+data ValU {n : ℕ} : {i : Size} → Exp {n} {i} → Set
+data TyG {n : ℕ} : Ty {n} → Set
+data TyG' {n : ℕ} : Ty {n} → Set
+data TyB {n : ℕ} : Ty {n} → Set
 
 data ValU {n} where
   UVar : {x : ℕ} → ValU (Var x)
@@ -63,7 +64,7 @@ data ValU {n} where
   UValUnit : ValU UnitE
   UValLab : {x : Fin n} → ValU (LabI x)
   UValFun : {N : Exp} → ValU (Abs N)
-  UValProd : {e e' : Exp} → (v : Val e) → Val e' → ValU (ProdV v e')
+  UValProd : {e e' : Exp} → (v : Val e) → Val e' → ValU (ProdV e e')
   UVarCast : {x : ℕ} {A B : Ty {n}} → ValU (Cast (Var x) A B)
   UValCast : {e : Exp {n}} {A B : Ty {n}} → Val e → ValU (Cast e A B)
   UBlame : ValU Blame
@@ -72,7 +73,7 @@ data Val {n} where
   VUnit : Val UnitE
   VLab : {x : Fin n} → Val (LabI x)
   VFun : {N : Exp} → Val (Abs N)
-  VProd : {e e' : Exp} → (v : Val e) → Val e' → Val (ProdV v e')
+  VProd : {e e' : Exp} → (v : Val e) → Val e' → Val (ProdV e e')
   VCast : {e : Exp} {G : Ty {n}} → Val e → TyG G → Val (Cast e G Dyn)
   VCastFun : {e : Exp} {A A' B B' : Ty {n}}  → Val e → Val (Cast e (Pi A B) (Pi A' B'))
 
@@ -83,39 +84,39 @@ data TyG' {n} where
   GSigma : TyG' (Sigma Dyn Dyn)  
 
 data TyG {n} where
-  GSingle : {e : Exp {n}} {V : Val e} {G : Ty} {tygG : TyG' G} → TyG (Single V G)
+  GSingle : {e : Exp {n}} {V : Val e} {G : Ty} {tygG : TyG' G} → TyG (Single e G)
   GG' : {T : Ty {n}} → TyG' T → TyG T
 
 data TyB {n} where
   BUnit : TyB UnitT
   BLabel : {s : Subset n} → TyB (Label s)
-  BSingleLab : {l : Fin n} {L : Subset n} → TyB (Single (VLab{x = l}) (Label L))
-  BSingleUnit : TyB (Single (VUnit) UnitT)
+  BSingleLab : {l : Fin n} {L : Subset n} → TyB (Single (LabI l) (Label L))
+  BSingleUnit : TyB (Single UnitE UnitT)
 --  BDyn : TyB Dyn
 
 ------------------------------------------------------------------------
 -- predicates, relations, views
 
 data notSingle {n : ℕ} : Ty {n} → Set where
-  notsingle : {A : Ty {n}} → (∀ e B → (W : Val e) → ¬ (A ≡ Single{e = e} W B)) → notSingle A
+  notsingle : {A : Ty {n}} → (∀ e B → ¬ (A ≡ Single e B)) → notSingle A
 
 data notCase{n : ℕ} : Ty {n} → Set where
-  notcase : {A : Ty {n}} → (∀ e s → (U : ValU e) → (f : (∀ l → l ∈ s → Ty)) → ¬ (A ≡ CaseT{s = s} U f)) → notCase A
+  notcase : {A : Ty {n}} → (∀ e s → (f : (∀ l → l ∈ s → Ty)) → ¬ (A ≡ CaseT e f)) → notCase A
 
 notsingle-label : {n : ℕ} {L : Subset n} → notSingle (Label L)
-notsingle-label {n} {L} = notsingle λ e A W ()
+notsingle-label {n} {L} = notsingle λ e A ()
 
 notsingle-dyn : {n : ℕ} → notSingle {n} Dyn
-notsingle-dyn {n} = notsingle λ e A W ()
+notsingle-dyn {n} = notsingle λ e A ()
 
-notnotsingle-single : {n : ℕ} {e : Exp {n}} {V : Val e} {A : Ty {n}} → ¬ (notSingle (Single V A))
-notnotsingle-single {n} {e} {V} {A} (notsingle x) = contradiction refl (x e A V) 
+notnotsingle-single : {n : ℕ} {e : Exp {n}} {A : Ty {n}} → ¬ (notSingle (Single e A))
+notnotsingle-single {n} {e} {A} (notsingle x) = contradiction refl (x e A) 
 
 notcase-label : {n : ℕ} {L : Subset n} → notCase (Label L)
-notcase-label {n} = notcase λ e s U f ()
+notcase-label {n} = notcase λ e s f ()
 
 notcase-dyn : {n : ℕ} → notCase {n} Dyn
-notcase-dyn {n} = notcase λ e s U f ()
+notcase-dyn {n} = notcase λ e s f ()
 
 -- variable in expression
 data _∈`ᵀ_ {n : ℕ} : ℕ → Ty {n} → Set
@@ -123,26 +124,26 @@ data _∈`_ {n : ℕ} : ℕ → Exp {n} → Set where
   in-var : {m : ℕ} → m ∈` Var m
   in-abs : {m : ℕ} {e : Exp {n}} → (ℕ.suc m) ∈` e → m ∈` (Abs e)
   in-app : {m : ℕ} {e e' : Exp {n}} → (m ∈` e ⊎ m ∈` e') → m ∈` (App e e')
-  in-casee : {x : ℕ} {s : Subset n} {f : (∀ l → l ∈ s → Exp {n})} {e : Exp {n}} {U : ValU e} → (∃₂ λ l i → x ∈` (f l i)) ⊎ x ∈` e → x ∈` CaseE U f
+  in-casee : {x : ℕ} {s : Subset n} {f : (∀ l → l ∈ s → Exp {n})} {e : Exp {n}} → (∃₂ λ l i → x ∈` (f l i)) ⊎ x ∈` e → x ∈` CaseE e f
   in-prod : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc x) ∈` e' → x ∈` Prod e e'
-  in-prodv : {x : ℕ} {e e' : Exp {n}} {v : Val e} → x ∈` e ⊎ x ∈` e' → x ∈` ProdV v e'  -- (Pair-A-I => e' has 0 substituted away => just x, not suc x)
+  in-prodv : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ x ∈` e' → x ∈` ProdV e e'  -- (Pair-A-I => e' has 0 substituted away => just x, not suc x)
   in-letp : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc (ℕ.suc x)) ∈` e' → x ∈` LetP e e'
   in-lete : {x : ℕ} {e e' : Exp {n}} → x ∈` e ⊎ (ℕ.suc x) ∈` e' → x ∈` LetE e e'
   in-cast : {x : ℕ} {e : Exp {n}} {A B : Ty {n}} → x ∈` e ⊎ x ∈`ᵀ A ⊎ x ∈`ᵀ B → x ∈` Cast e A B
 
 -- variable in type
 data _∈`ᵀ_ {n} where
-  in-single : {x : ℕ} {e : Exp {n}} {A : Ty {n}} {v : Val e} → x ∈` e → x ∈`ᵀ Single v A 
+  in-single : {x : ℕ} {e : Exp {n}} {A : Ty {n}} → x ∈` e → x ∈`ᵀ Single e A 
   in-pi : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Pi A B
   in-pigma : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Sigma A B
-  in-case : {x : ℕ} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} {e : Exp {n}} {U : ValU e} → (∃₂ λ l i → x ∈`ᵀ (f l i)) ⊎ x ∈` e → x ∈`ᵀ CaseT U f
+  in-case : {x : ℕ} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} {e : Exp {n}} → (∃₂ λ l i → x ∈`ᵀ (f l i)) ⊎ x ∈` e → x ∈`ᵀ CaseT e f
 
 -- generalized values incorporate values
 val⊂valu : {n : ℕ} {e : Exp {n}} → Val e → ValU e
 val⊂valu {n} {.UnitE} VUnit = UValUnit
 val⊂valu {n} {.(LabI _)} VLab = UValLab
 val⊂valu {n} {.(Abs _)} VFun = UValFun
-val⊂valu {n} {.(ProdV v _)} (VProd v v₁) = UValProd v v₁
+val⊂valu {n} {.(ProdV _ _)} (VProd v v₁) = UValProd v v₁
 val⊂valu {n} {.(Cast _ _ Dyn)} (VCast v x) = UValCast v
 val⊂valu {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) = UValCast v
 
@@ -181,18 +182,19 @@ piView {n} (CaseT x f) = other-v{neq = λ B C → λ ()}
 piView {n} (Pi T T₁) = pi-v
 
 data SingleView {n : ℕ} : Ty {n} → Set where
-  single-v : {A : Ty {n}} {e : Exp {n}} {V : Val e} → SingleView (Single V A)
-  other-v : {A : Ty {n}} {neq : ∀ e B V → A ≢ Single{e = e} V B} → SingleView A
+  single-v : {A : Ty {n}} {e : Exp {n}} → SingleView (Single e A)
+  other-v : {A : Ty {n}} {neq : ∀ e B → A ≢ Single e B} → SingleView A
 
 singleView : {n : ℕ} → (T : Ty {n}) → SingleView T
-singleView {n} Bot = other-v{neq = λ e B V → λ ()}
-singleView {n} UnitT = other-v{neq = λ e B V → λ ()}
-singleView {n} Dyn = other-v{neq = λ e B V → λ ()}
-singleView {n} (Label x) = other-v{neq = λ e B V → λ ()}
-singleView {n} (Pi T T₁) = other-v{neq = λ e B V → λ ()}
-singleView {n} (Sigma T T₁) = other-v{neq = λ e B V → λ ()}
-singleView {n} (CaseT x f) = other-v{neq = λ e B V → λ ()}
+singleView {n} Bot = other-v{neq = λ e B → λ ()}
+singleView {n} UnitT = other-v{neq = λ e B → λ ()}
+singleView {n} Dyn = other-v{neq = λ e B → λ ()}
+singleView {n} (Label x) = other-v{neq = λ e B → λ ()}
+singleView {n} (Pi T T₁) = other-v{neq = λ e B → λ ()}
+singleView {n} (Sigma T T₁) = other-v{neq = λ e B → λ ()}
+singleView {n} (CaseT x f) = other-v{neq = λ e B → λ ()}
 singleView {n} (Single x A) = single-v
+
 
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
@@ -203,18 +205,21 @@ TyG'-uniqueness {n} {.(Label _)} GLabel GLabel = refl
 TyG'-uniqueness {n} {.(Pi Dyn Dyn)} GPi GPi = refl
 TyG'-uniqueness {n} {.(Sigma Dyn Dyn)} GSigma GSigma = refl
 
+Val-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : Val {n} {i} e) → x ≡ x'
 TyG-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG G) → x ≡ x'
-TyG-uniqueness {n} {.(Single _ _)} (GSingle{tygG = tygG}) (GSingle{tygG = tygG'})
-  rewrite TyG'-uniqueness tygG tygG' = refl  
+
+TyG-uniqueness {n} {.(Single _ _)} (GSingle{V = V}{tygG = tygG}) (GSingle{V = V₁}{tygG = tygG'})
+  rewrite TyG'-uniqueness tygG tygG' | Val-uniqueness V V₁ = refl  
 TyG-uniqueness {n} {G} (GG' x) (GG' x₁)
   rewrite TyG'-uniqueness x x₁ = refl
 
-Val-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : Val {n} {i} e) → x ≡ x'
 Val-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} VUnit VUnit = refl
 Val-uniqueness {n} {.(↑ˡ ∞)} {.(LabI _)} VLab VLab = refl
 Val-uniqueness {n} {.(↑ˡ ∞)} {.(Abs _)} VFun VFun = refl
-Val-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV v _)} (VProd v v₁) (VProd .v v')
-  rewrite (Val-uniqueness v₁ v') = refl
+Val-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV _ _)} (VProd v v₁) (VProd v' v₁')
+  rewrite (Val-uniqueness v v') | (Val-uniqueness v₁ v₁') = refl
+-- Val-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV _ _)} (VProd v v₁) (VProd v* v')
+--   rewrite (Val-uniqueness v₁ v') = refl
 Val-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ Dyn)} (VCast v x) (VCast v' x₁)
   rewrite (Val-uniqueness v v') | (TyG-uniqueness x x₁) = refl
 Val-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) (VCastFun v')
@@ -225,12 +230,14 @@ ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Var _)} UVar UVar = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} UValUnit UValUnit = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(LabI _)} UValLab UValLab = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Abs _)} UValFun UValFun = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV v _)} (UValProd v x) (UValProd .v x₁)
-  rewrite (Val-uniqueness x x₁) = refl
+ValU-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV _ _)} (UValProd v v₁) (UValProd v' v₁')
+  rewrite (Val-uniqueness v v') | (Val-uniqueness v₁ v₁') = refl
 ValU-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast (Var _) _ _)} UVarCast UVarCast = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UValCast x) (UValCast x₁)
   rewrite (Val-uniqueness x x₁) = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.Blame} UBlame UBlame = refl
+
+
 
 TyG'-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Pi A B) → A ≡ Dyn × B ≡ Dyn
 TyG'-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
@@ -238,8 +245,8 @@ TyG'-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
 TyG'-Sigma-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Sigma A B) → A ≡ Dyn × B ≡ Dyn
 TyG'-Sigma-inv {n} {.Dyn} {.Dyn} GSigma = refl , refl
 
-Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} {v : Val e} → Val (ProdV v e') → Val e'
-Val-ProdV-inv {n} {e} {e'} {v} (VProd .v val) = val
+Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} → Val (ProdV e e') → Val e'
+Val-ProdV-inv {n} {e} {e'} (VProd v val) = val
 
 Val-Cast-inv : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → Val (Cast e A B) → (Val e × (TyG A × B ≡ Dyn ⊎ ∃[ A° ](∃[ B° ](∃[ A°° ](∃[ B°° ](A ≡ Pi A° B° × B ≡ Pi A°° B°°))))))
 Val-Cast-inv {n} {e} {A} {.Dyn} (VCast val x) = val , (inj₁ (x , refl))
@@ -251,32 +258,32 @@ Pi-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 Sigma-equiv : {n : ℕ} {A A' B B' : Ty {n}} → Sigma A B ≡ Sigma A' B' → A ≡ A' × B ≡ B'
 Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 
-Single-equiv : {n : ℕ} {e e' : Exp {n}} {A A' : Ty {n}} {V : Val e} {V' : Val e'} → Single V A ≡ Single V' A' → e ≡ e'
-Single-equiv {n} {e} {.e} {A} {.A} {V} {.V} refl = refl
+Single-equiv : {n : ℕ} {e e' : Exp {n}} {A A' : Ty {n}} → Single e A ≡ Single e' A' → e ≡ e'
+Single-equiv {n} {e} {.e} {A} {.A} refl = refl
 
 notsingle×TyB⊂TyG' : {n : ℕ} {A : Ty {n}} → notSingle A → TyB A → TyG' A
 notsingle×TyB⊂TyG' (notsingle neq) BUnit = GUnit
 notsingle×TyB⊂TyG' (notsingle neq) BLabel = GLabel
-notsingle×TyB⊂TyG' (notsingle neq) (BSingleLab{l = l}{L = L}) = contradiction refl (neq (LabI l) (Label L) (VLab))
-notsingle×TyB⊂TyG' (notsingle neq) BSingleUnit = contradiction refl (neq UnitE UnitT VUnit)
+notsingle×TyB⊂TyG' (notsingle neq) (BSingleLab{l = l}{L = L}) = contradiction refl (neq (LabI l) (Label L))
+notsingle×TyB⊂TyG' (notsingle neq) BSingleUnit = contradiction refl (neq UnitE UnitT)
 
 TyG'⇒notSingle : {n : ℕ} {A : Ty {n}} → TyG' A → notSingle A
-TyG'⇒notSingle {n} {.UnitT} GUnit = notsingle λ e B W → λ ()
-TyG'⇒notSingle {n} {.(Label _)} GLabel = notsingle λ e B W → λ ()
-TyG'⇒notSingle {n} {.(Pi Dyn Dyn)} GPi = notsingle λ e B W → λ ()
-TyG'⇒notSingle {n} {.(Sigma Dyn Dyn)} GSigma = notsingle λ e B W → λ ()
+TyG'⇒notSingle {n} {.UnitT} GUnit = notsingle λ e B → λ ()
+TyG'⇒notSingle {n} {.(Label _)} GLabel = notsingle λ e B → λ ()
+TyG'⇒notSingle {n} {.(Pi Dyn Dyn)} GPi = notsingle λ e B → λ ()
+TyG'⇒notSingle {n} {.(Sigma Dyn Dyn)} GSigma = notsingle λ e B → λ ()
 
 TyB⊂TyG : {n : ℕ} {A : Ty {n}} → TyB A → TyG A
 TyB⊂TyG BUnit = GG' GUnit
 TyB⊂TyG BLabel = GG' GLabel
-TyB⊂TyG BSingleLab = GSingle {tygG = GLabel}
-TyB⊂TyG BSingleUnit = GSingle {tygG = GUnit}
+TyB⊂TyG BSingleLab = GSingle{V = VLab} {tygG = GLabel}
+TyB⊂TyG BSingleUnit = GSingle{V = VUnit} {tygG = GUnit}
+
 
 ------------------------------------------------------------------------
 -- decidable
 
-
- -- Decidable syntactic equalities
+-- Decidable syntactic equalities
 _≡ᵀ?_ : {n : ℕ} {i : Size} (A B : Ty {n} {i}) → Dec (A ≡ B)
 _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 
@@ -314,11 +321,14 @@ TyG? UnitT = yes (GG' GUnit)
 TyG? Label x = yes (GG' GLabel)
 
 TyG? Single x G
-  with TyG'? G
-... | yes p = yes (GSingle{tygG = p})
-... | no ¬p = no ϱ
+  with TyG'? G | Val? x 
+... | yes p | yes v = yes (GSingle{V = v}{tygG = p})
+... | no ¬p | _ = no ϱ
     where ϱ : TyG (Single x G) → Data.Empty.⊥
           ϱ (GSingle{tygG = tygG}) = contradiction tygG ¬p
+... | _ | no ¬v = no ϱ          
+    where ϱ : TyG (Single x G) → Data.Empty.⊥
+          ϱ (GSingle{V = v})= ¬v v
 TyG? Pi G G₁
   with TyG'? (Pi G G₁)
 ...  | yes p = yes (GG' p)
@@ -352,10 +362,15 @@ Val? App e x = no (λ ())
 Val? LabI x = yes VLab
 Val? CaseE x f = no (λ ())
 Val? Prod e e₁ = no (λ ())
-Val? ProdV x e
-  with Val? e
-...  | yes v = yes (VProd x v)
-...  | no ¬v = no (λ x₁ → contradiction (Val-ProdV-inv x₁) ¬v)  
+Val? ProdV e e'
+  with Val? e | Val? e'
+...  | yes v | yes v' = yes (VProd v v')
+...  | no ¬v | _ = no ϱ
+     where ϱ : ¬ (Val (ProdV e e'))
+           ϱ (VProd w w₁) = ¬v w
+...  | _ | no ¬v' = no ϱ
+     where ϱ : ¬ (Val (ProdV e e'))
+           ϱ (VProd w w₁) = ¬v' w₁
 Val? Cast e A B
   with Val? e
 ...  | no ¬v = no (λ x₂ → contradiction (proj₁ (Val-Cast-inv x₂)) ¬v)
@@ -385,32 +400,40 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
 
 TyB? UnitT = yes BUnit
 TyB? Label x = yes BLabel
-TyB? Single VLab (Label x) = yes BSingleLab
-TyB? Single VUnit UnitT = yes BSingleUnit
+TyB? Single (LabI l) (Label x) = yes BSingleLab
+TyB? Single UnitE UnitT = yes BSingleUnit
 
-TyB? Single VUnit (Single x A) = no λ ()
-TyB? Single VUnit (Label x) = no λ ()
-TyB? Single VUnit (Pi A A₁) = no λ ()
-TyB? Single VUnit (Sigma A A₁) = no λ ()
-TyB? Single VUnit (CaseT x f) = no λ ()
-TyB? Single VUnit Bot = no λ ()
-TyB? Single VUnit Dyn = no λ ()
-TyB? Single VLab UnitT = no λ ()
-TyB? Single VLab (Single x A) = no λ ()
-TyB? Single VLab (Pi A A₁) = no λ ()
-TyB? Single VLab (Sigma A A₁) = no λ ()
-TyB? Single VLab (CaseT x f) = no λ ()
-TyB? Single VLab Bot = no λ ()
-TyB? Single VLab Dyn = no λ ()
-TyB? Single VFun A = no λ ()
-TyB? Single (VProd x x₁) A = no λ ()
-TyB? Single (VCast x x₁) A = no λ ()
-TyB? Single (VCastFun x) A = no λ ()
+TyB? Single UnitE (Single x A) = no λ ()
+TyB? Single UnitE (Label x) = no λ ()
+TyB? Single UnitE (Pi A A₁) = no λ ()
+TyB? Single UnitE (Sigma A A₁) = no λ ()
+TyB? Single UnitE (CaseT x f) = no λ ()
+TyB? Single UnitE Bot = no λ ()
+TyB? Single UnitE Dyn = no λ ()
+TyB? Single (LabI l) UnitT = no λ ()
+TyB? Single (LabI l) (Single x A) = no λ ()
+TyB? Single (LabI l) (Pi A A₁) = no λ ()
+TyB? Single (LabI l) (Sigma A A₁) = no λ ()
+TyB? Single (LabI l) (CaseT x f) = no λ ()
+TyB? Single (LabI l) Bot = no λ ()
+TyB? Single (LabI l) Dyn = no λ ()
+TyB? Single (Var x) A = no λ ()
+TyB? Single (Abs e) A = no λ ()
+TyB? Single (App e e₁) A = no λ ()
+TyB? Single (CaseE e f) A = no λ ()
+TyB? Single (Prod e e₁) A = no λ ()
+TyB? Single (ProdV e e₁) A = no λ ()
+TyB? Single (LetP e e₁) A = no λ ()
+TyB? Single (LetE e e₁) A = no λ ()
+TyB? Single Blame A = no λ ()
+TyB? Single (Cast e x x₁) A = no λ ()
+
 TyB? Pi A A₁ = no λ ()
 TyB? Sigma A A₁ = no λ ()
 TyB? CaseT x f = no λ ()
 TyB? Bot = no λ ()
 TyB? Dyn = no λ ()
+
 
 -- Syntactic equality implementations
 UnitE ≡ᵉ? UnitE = yes refl
@@ -449,16 +472,16 @@ _≡ᵉ?_ {n} .{↑ˡ i} (App{i} e e*) (App e' e**)
   where
   ϱ' :  ¬ (App e e* ≡ App e' e**)
   ϱ' refl = contradiction refl ¬p 
-_≡ᵉ?_ {n} .{↑ˡ i} (ProdV{i}{e = e*} v e) (ProdV{e = e**} v' e')
+_≡ᵉ?_ {n} .{↑ˡ i} (ProdV{i} e* e) (ProdV e** e')
   with e ≡ᵉ? e' | e* ≡ᵉ? e**
-...  | yes p | yes p' rewrite p | p' | (Val-uniqueness v v') = yes refl
+...  | yes p | yes p' rewrite p | p' = yes refl
 ...  | yes p | no ¬p' = no ϱ
   where
-  ϱ : ¬ (ProdV v e ≡ ProdV v' e')
+  ϱ : ¬ (ProdV e* e ≡ ProdV e** e')
   ϱ refl = contradiction refl ¬p'
 ... | no ¬p | _ = no ϱ
   where
-  ϱ :  ¬ (ProdV v e ≡ ProdV v' e')
+  ϱ :  ¬ (ProdV e* e ≡ ProdV e** e')
   ϱ refl = contradiction refl ¬p  
 
 Prod e₁ e₂ ≡ᵉ? Prod e₁' e₂'
@@ -495,23 +518,23 @@ LetE e₁ e₂ ≡ᵉ? LetE e₁' e₂'
   ϱ : ¬ (LetE e₁ e₂ ≡ LetE e₁' e₂')
   ϱ refl = contradiction refl ¬p  
 
-_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s}{e = e} U f) (CaseE{i = .i}{s = s'}{e = e'} U' f')
+_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s} e f) (CaseE{i = .i}{s = s'} e' f')
   with e ≡ᵉ? e' | s ≡ˢ? s'
 ...  | yes p | yes p'
      rewrite p | p'
      with (_≡ᶠ?_{dec = λ a a' → _≡ᵉ?_{i = i} a a' } f f')  -- needs s ≡ s'
-...     | yes p'' rewrite p'' | (ValU-uniqueness U U') = yes refl
+...     | yes p'' rewrite p'' = yes refl
 ...     | no ¬p'' = no ϱ
         where 
-        ϱ : ¬ (_≡_ (CaseE{i = i}{s = s'}{e = e'} U f) (CaseE{i = i}{s = s'}{e = e'} U' f'))
+        ϱ : ¬ (_≡_ (CaseE{i = i}{s = s'} e' f) (CaseE{i = i}{s = s'} e' f'))
         ϱ refl = contradiction refl ¬p''
-_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s}{e = e} U f) (CaseE{i = .i}{s = s'}{e = e'} U' f') | yes p | no ¬p' = no ϱ
+_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s} e f) (CaseE{i = .i}{s = s'} e' f') | yes p | no ¬p' = no ϱ
   where
-  ϱ : ¬ (_≡_ (CaseE{i = i}{s = s}{e = e} U f) (CaseE{i = i}{s = s'}{e = e'} U' f'))
+  ϱ : ¬ (_≡_ (CaseE{i = i}{s = s} e f) (CaseE{i = i}{s = s'} e' f'))
   ϱ refl = contradiction refl ¬p'
-_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s}{e = e} U f) (CaseE{i = .i}{s = s'}{e = e'} U' f') | no ¬p | _ = no ϱ
+_≡ᵉ?_ {n} .{↑ˡ i} (CaseE{i = i}{s = s} e f) (CaseE{i = .i}{s = s'} e' f') | no ¬p | _ = no ϱ
   where
-  ϱ : ¬ (_≡_ (CaseE{i = i}{s = s}{e = e} U f) (CaseE{i = i}{s = s'}{e = e'} U' f'))
+  ϱ : ¬ (_≡_ (CaseE{i = i}{s = s} e f) (CaseE{i = i}{s = s'} e' f'))
   ϱ refl = contradiction refl ¬p
 
 Cast e A B ≡ᵉ? Cast e' A' B'
@@ -677,16 +700,16 @@ Label L ≡ᵀ? Label L'
   ϱ : ¬(Label L ≡ Label L')
   ϱ refl = contradiction refl ¬p
 
-Single{e = e} V A ≡ᵀ? Single{e = e'} V' A'
+Single e A ≡ᵀ? Single e' A'
   with e ≡ᵉ? e' | A ≡ᵀ? A'
-...  | yes p | yes p' rewrite p | p' | Val-uniqueness V V' = yes refl
+...  | yes p | yes p' rewrite p | p' = yes refl
 ...  | no ¬p | _ = no ϱ
   where
-  ϱ : ¬ (Single V A ≡ Single V' A')
+  ϱ : ¬ (Single e A ≡ Single e' A')
   ϱ refl = contradiction refl ¬p
 ...  | _ | no ¬p = no ϱ
   where
-  ϱ : ¬ (Single V A ≡ Single V' A')
+  ϱ : ¬ (Single e A ≡ Single e' A')
   ϱ refl = contradiction refl ¬p    
 Pi nA B ≡ᵀ? Pi nA' B'
   with nA ≡ᵀ? nA' | B ≡ᵀ? B'
@@ -710,23 +733,23 @@ Sigma nA B ≡ᵀ? Sigma nA' B'
   where
   ϱ : ¬ (Sigma nA B ≡ Sigma nA' B')
   ϱ refl = contradiction refl ¬p    
-_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = .i}{s = s'}{e = e'} U' f')
+_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s} e f) (CaseT{i = .i}{s = s'} e' f')
   with e ≡ᵉ? e' | s ≡ˢ? s'
 ...  | yes p | yes p'
      rewrite p | p'
      with (_≡ᶠ?_{dec = λ a a' → _≡ᵀ?_{i = i} a a' } f f')  -- needs s ≡ s'
-...     | yes p'' rewrite p'' | (ValU-uniqueness U U') = yes refl
+...     | yes p'' rewrite p'' = yes refl
 ...     | no ¬p'' = no ϱ
         where 
-        ϱ : ¬ (_≡_ (CaseT{i = i}{s = s'}{e = e'} U f) (CaseT{i = i}{s = s'}{e = e'} U' f'))
+        ϱ : ¬ (_≡_ (CaseT{i = i}{s = s'} e' f) (CaseT{i = i}{s = s'} e' f'))
         ϱ refl = contradiction refl ¬p''
-_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = .i}{s = s'}{e = e'} U' f') | yes p | no ¬p' = no ϱ
+_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s} e f) (CaseT{i = .i}{s = s'} e' f') | yes p | no ¬p' = no ϱ
   where
-  ϱ : ¬ (_≡_ (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = i}{s = s'}{e = e'} U' f'))
+  ϱ : ¬ (_≡_ (CaseT{i = i}{s = s} e f) (CaseT{i = i}{s = s'} e' f'))
   ϱ refl = contradiction refl ¬p'
-_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = .i}{s = s'}{e = e'} U' f') | no ¬p | _ = no ϱ
+_≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s} e f) (CaseT{i = .i}{s = s'} e' f') | no ¬p | _ = no ϱ
   where
-  ϱ : ¬ (_≡_ (CaseT{i = i}{s = s}{e = e} U f) (CaseT{i = i}{s = s'}{e = e'} U' f'))
+  ϱ : ¬ (_≡_ (CaseT{i = i}{s = s} e f) (CaseT{i = i}{s = s'} e' f'))
   ϱ refl = contradiction refl ¬p
 
 -- automatically generated (hence the creative naming of subexpressions) boring cases
@@ -787,3 +810,5 @@ CaseT U f ≡ᵀ? Single V A = no λ ()
 CaseT U f ≡ᵀ? Label L = no λ ()
 CaseT U f ≡ᵀ? Pi nA B = no λ ()
 CaseT U f ≡ᵀ? Sigma nA' B' = no λ ()
+
+
