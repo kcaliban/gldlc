@@ -14,6 +14,7 @@ open import Relation.Binary.PropositionalEquality renaming (trans to ≡-trans)
 open import Data.Product
 open import Data.Sum
 open import Data.Empty
+open import Data.Bool
 
 open import Aux
 
@@ -195,6 +196,29 @@ singleView {n} (Sigma T T₁) = other-v{neq = λ e B → λ ()}
 singleView {n} (CaseT x f) = other-v{neq = λ e B → λ ()}
 singleView {n} (Single x A) = single-v
 
+issingle?_ : {n : ℕ} → (A : Ty {n}) → Dec (∃[ e ] (∃[ B ] (A ≡ Single e B)))
+issingle? Single x A = yes (x , (A , refl))
+issingle? UnitT = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → UnitT ≡ Single e B))
+        ϱ (a , b , ())
+issingle? Label x = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Label x ≡ Single e B))
+        ϱ (a , b , ())
+issingle? Pi A A₁ = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Pi A A₁ ≡ Single e B))
+        ϱ (a , b , ())
+issingle? Sigma A A₁ = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Sigma A A₁ ≡ Single e B))
+        ϱ (a , b , ())
+issingle? CaseT x f = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → CaseT x f ≡ Single e B))
+        ϱ (a , b , ())
+issingle? Bot = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Bot ≡ Single e B))
+        ϱ (a , b , ())
+issingle? Dyn = no ϱ
+  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Dyn ≡ Single e B))
+        ϱ (a , b , ())
 
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
@@ -289,6 +313,7 @@ _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 
 -- Decidable predicates
 Val?_ : {n : ℕ} (e : Exp {n}) → Dec (Val e)
+ValU?_ : {n : ℕ} (e : Exp {n}) → Dec (ValU e)
 TyG'?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG' A)
 TyG?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG A)
 TyB?_ : {n : ℕ} (A : Ty {n}) → Dec (TyB A)
@@ -397,6 +422,63 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
           with (Val-Cast-inv v°)
         ...  | fst , inj₁ (fst₁ , snd) = contradiction snd ¬eq
         ...  | fst , inj₂ (fst' , snd , thd , fth , ffth , sxth) = contradiction sxth (neq thd fth)
+
+
+ValU? Var x = yes UVar
+ValU? UnitE = yes UValUnit
+ValU? Abs e = yes UValFun
+ValU? App e e₁ = no λ ()
+ValU? LabI x = yes UValLab
+ValU? CaseE e f = no λ ()
+ValU? Prod e e₁ = no λ ()
+ValU? ProdV e e₁
+  with Val? e | Val? e₁
+...  | yes v | yes w = yes (UValProd v w)
+...  | no ¬v | yes w = no ϱ
+     where ϱ : ¬ ValU (ProdV e e₁)
+           ϱ (UValProd v x) = ¬v v
+...  | yes v | no ¬w = no ϱ
+     where ϱ : ¬ ValU (ProdV e e₁)
+           ϱ (UValProd v x) = ¬w x
+...  | no ¬v | no ¬w = no ϱ
+     where ϱ : ¬ ValU (ProdV e e₁)
+           ϱ (UValProd v x) = ¬v v
+ValU? LetP e e₁ = no λ ()
+ValU? LetE e e₁ = no λ ()
+ValU? Blame = yes UBlame
+ValU? Cast e A B
+  with Val? e
+...  | yes v = yes (UValCast v)
+...  | no ¬v
+     with e
+...     | Var x₂ = yes (UVarCast{x = x₂})
+...     | UnitE = no (contradiction VUnit ¬v)
+...     | Abs u = no (contradiction VFun ¬v)
+...     | LabI x₂ = no (contradiction VLab ¬v)
+...     | Blame = no ϱ
+        where ϱ : ¬ ValU (Cast Blame A B)
+              ϱ (UValCast ())
+...     | App u u₁ = no ϱ
+        where ϱ : ¬ ValU (Cast (App u u₁) A B)
+              ϱ (UValCast ())
+...     | CaseE u f = no ϱ
+        where ϱ : ¬ ValU (Cast (CaseE u f) A B)
+              ϱ (UValCast ())
+...     | Prod u u₁ = no ϱ
+        where ϱ : ¬ ValU (Cast (Prod u u₁) A B)
+              ϱ (UValCast ())
+...     | LetP u u₁ = no ϱ
+        where ϱ : ¬ ValU (Cast (LetP u u₁) A B)
+              ϱ (UValCast ())
+...     | LetE u u₁ = no ϱ
+        where ϱ : ¬ ValU (Cast (LetE u u₁) A B)
+              ϱ (UValCast ())
+...     | ProdV u u₁ = no ϱ
+        where ϱ : ¬ ValU (Cast (ProdV u u₁) A B)
+              ϱ (UValCast x) = ¬v x
+...     | Cast u x₂ x₃ = no ϱ
+        where ϱ : ¬ ValU (Cast (Cast u x₂ x₃) A B)
+              ϱ (UValCast x) = ¬v x
 
 TyB? UnitT = yes BUnit
 TyB? Label x = yes BLabel

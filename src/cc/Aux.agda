@@ -34,6 +34,9 @@ postulate
   ext : {A : Set}{B : A → Set}{f : (x : A) → B x} {g : (x : A) → B x} →
     (∀ x → f x ≡ g x) → f ≡ g
 
+¬∃⇒∀¬ : {A : Set} {B : A → Set} → ¬ (∃[ a ](B a)) → ∀ a → ¬ (B a)
+¬∃⇒∀¬ ¬∃ a b = ¬∃ (a , b)
+
 ------------------------------------------------------------------------
 -- Various properties
 
