@@ -41,7 +41,7 @@ data Exp {n} where
   LetP : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetE : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   Blame : {i : Size} → Exp {n} {↑ˡ i}
-  Cast : {i : Size} → Exp {n} {i} → Ty {n} {i} → Ty {n} {i} → Exp {n} {↑ˡ i}
+  Cast : {i j q : Size} → Exp {n} {i} → Ty {n} {j} → Ty {n} {q} → Exp {n} {i ⊔ˢ (j ⊔ˢ q)}
 
 data Ty {n} where
   UnitT : {i : Size} → Ty {n} {↑ˡ i}
@@ -50,7 +50,7 @@ data Ty {n} where
   Pi : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   Sigma : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   CaseT : {i : Size} {s : Subset n} → Exp {n} {i} → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
-  Bot : {i : Size} → Ty {n} {↑ˡ i}
+  Bot : {i : Size} → Ty {n} {i}
   Dyn : {i : Size} → Ty {n} {↑ˡ i}
 
 data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
@@ -150,11 +150,11 @@ val⊂valu {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) = UValCast v
 
 -- makes differentiating between cast and non-cast subexpressions
 -- in progress simpler
-data CastView {n : ℕ} : Exp {n} → Set where
+data CastView {n : ℕ} : {i : Size} → Exp {n} {i} → Set where
   cast-v : {e : Exp {n}} {A B : Ty {n}} → CastView (Cast e A B)
   other-v : {e : Exp {n}} {neq : ∀ e' A B → e ≢ Cast e' A B} → CastView e
 
-castView : {n : ℕ} → (e : Exp {n}) → CastView e
+castView : {i : Size} {n : ℕ} → (e : Exp {n} {i}) → CastView e
 castView (Var x) = other-v{neq = λ e' A B → λ ()}
 castView UnitE = other-v{neq = λ e' A B → λ ()}
 castView Blame = other-v{neq = λ e' A B → λ ()}

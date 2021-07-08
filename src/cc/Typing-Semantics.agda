@@ -3,6 +3,7 @@
 ------------------------------------------------------------------------
 
 {-# OPTIONS --sized-types #-}
+{-# OPTIONS --show-implicit #-}
 module Typing-Semantics where
 
 open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
@@ -76,7 +77,7 @@ data _⊢_≤ᵀ_ {n : ℕ} : TEnv {n} → Ty {n} → Ty {n} → Set
 -- Unfolding (e.g. CaseT ... ⇓ T)
 data _⊢_⇓_ {n : ℕ} : TEnv {n} → Ty {n} → Ty {n} → Set
 -- precise cast function
-cast : {n : ℕ} → Ty {n} → Ty {n} → Ty {n} → Ty {n}
+cast : {i j q : Size} {n : ℕ} → Ty {n} {i} → Ty {n} {j} → Ty {n} {q} → Ty {n} {i ⊔ˢ (j ⊔ˢ q)}
 
 -- Implementations
 
@@ -99,15 +100,6 @@ data _⊢_◁_ {n} where
              → Γ ⊢ M ▷ A
              → Γ ⊢ A ≤ᵀ B
              → Γ ⊢ M ◁ B
-  LabelChkA : {Γ : TEnv {n}} {L : Subset n} {l : Fin n}
-              → l ∈ L
-              → Γ ⊢ LabI l ◁ Label L
-  UnitChkA : {Γ : TEnv {n}}
-             → Γ ⊢ UnitE ◁ UnitT
-  CastChkA : {Γ : TEnv {n}} {M : Exp {n}} {A B B' : Ty {n}}
-             → Γ ⊢ M ◁ A
-             → Γ ⊢ B ≤ᵀ B'
-             → Γ ⊢ (Cast M A B) ◁ B'
 
 data _⊢_≤ᵀ_ {n} where
   ASubBot : {Γ : TEnv {n}} {T : Ty {n}} {ok : Γ ⊢ T} → Γ ⊢ Bot ≤ᵀ T
@@ -756,12 +748,15 @@ evaluate-full-steps (gas (ℕ.suc amount)) e
 ------------------------------------------------------------------------
 -- Cast function, limited to 1000 evaluations
 
-cast (Single e A') A B
-  with evaluate-full (gas 1000) (Cast e A B)
-...  | fst , result RBlame = Bot
-...  | fst , result (RValue v) = Single fst B 
-...  | fst , stuck = Bot
-...  | fst , out-of-gas = Bot
+cast {i} {j} {q} (Single e A') A B
+  with _≡ᵀ?_{i = i ⊔ˢ j}  A A'
+...  | no ¬eq = B
+...  | yes eq 
+     with evaluate-full (gas 1000) (Cast e A B)
+...     | fst , result RBlame = Bot
+...     | fst , result (RValue v) = Single fst B 
+...     | fst , stuck = Bot
+...     | fst , out-of-gas = Bot
 
 cast UnitT A B = B
 cast (Label x) A B = B

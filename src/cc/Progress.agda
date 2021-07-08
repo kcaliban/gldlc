@@ -2,6 +2,8 @@
 -- Progress
 ------------------------------------------------------------------------
 
+{-# OPTIONS --sized-types #-}
+{-# OPTIONS --show-implicit #-}
 module Progress where
 
 open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
@@ -23,6 +25,7 @@ open import Data.Maybe
 open import Data.Maybe.Relation.Unary.All renaming (All to Allᵐ)
 open import Data.Maybe.Relation.Unary.Any renaming (Any to Anyᵐ)
 open import Data.Unit using (⊤)
+open import Size renaming (↑_ to ↑ˡ)
 
 open import Syntax
 open import Substitution
@@ -54,119 +57,100 @@ env-empty-++ : {n : ℕ} {Γ' Γ : TEnv {n}} {D : Ty {n}} → ¬ ([] ≡ Γ' ++ 
 env-empty-++ {n} {Γ} {Γ'} {D} eq = contradiction (env-len-eq eq) (Data.Nat.Properties.<⇒≢ (env-len->-++ (env-len->{T = D})))
 
 ------------------------------------------------------------------------
--- Lemmas for "cast" case
+-- Lemmas for cast function
 
--- (V : * => G), V ≠ Cast, untypable in empty env.
-cast-lemma-1 : {n : ℕ} {e : Exp {n}} {A G : Ty {n}} → (∀ e' A B → ¬ (e ≡ Cast e' A B)) → Val e → ¬ ([] ⊢ Cast e Dyn G ▷ A)
-cast-lemma-1 {n} {(LabI l)} {G} ncast W (CastA (LabAI x₃) x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing-single{A = Label ⁅ l ⁆}{B = Dyn}{C = G}{e = LabI l}{V = VLab{x = l}} (λ ()) λ ())) 
-cast-lemma-1 {n} {(Cast e y z)} {G} ncast W (CastA (CastA j x₃ x₄ x₅) x x₁ x₂) = contradiction refl (ncast e y z)
-cast-lemma-1 {n} {.UnitE} {G} ncast W (CastA (UnitAI x₃) x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = UnitT} {Dyn} {C = G} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-1 {n} {.(Abs _)} {G} ncast W (CastA (PiAI{A = A}{B = B} j) x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Pi A B} {Dyn} {C = G} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-1 {n} {.(ProdV _ _)} {G} ncast W (CastA (PairAI{A = A}{B = B} j j₁) x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Sigma A B} {Dyn} {C = G} (notsingle (λ e B W → λ ())) (λ ())))
+-- evaluate-full (gas 1000) (Cast e A B)
+cast-result : {n : ℕ} {A' A B : Ty {n}} → (cast A' A B ≡ B) ⊎ (∃[ e ](cast A' A B ≡ Single e B)) ⊎ (cast A' A B ≡ Bot)
+cast-result {n} {Single e A'} {A} {B}
+  with A ≡ᵀ? A'
+...  | no ¬eq = inj₁ refl
+...  | yes eq
+     with evaluate-full (gas 1000) (Cast e A B)
+...     | fst , result (RValue x) = inj₂ (inj₁ (fst , refl))
+...     | .Blame , result RBlame = inj₂ (inj₂ refl)
+...     | fst , stuck = inj₂ (inj₂ refl)
+...     | fst , out-of-gas = inj₂ (inj₂ refl)
 
--- V : Σ => Σ well-typed in empty env. means V is a product
-cast-lemma-2 : {n : ℕ} {e : Exp {n}} {A nA nA' B B' : Ty {n}} {nfA : TyNf nA} {nfA' : TyNf nA'} → (∀ e' A B → ¬ (e ≡ Cast e' A B))
-                                                                                                 → Val e → [] ⊢ Cast e (Sigma nA B) (Sigma nA' B') ▷ A
-                                                                                                 → (∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e''))))
-cast-lemma-2 {n} {ProdV{e = e} x₃ e'} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Sigma A' A''} j x x₁ x₂) = (e , x₃ , (e' , refl))
+cast-result {n} {UnitT} {A} {B} = inj₁ refl
+cast-result {n} {Label x} {A} {B} = inj₁ refl
+cast-result {n} {Pi A' A''} {A} {B} = inj₁ refl
+cast-result {n} {Sigma A' A''} {A} {B} = inj₁ refl
+cast-result {n} {CaseT x f} {A} {B} = inj₁ refl
+cast-result {n} {Bot} {A} {B} = inj₁ refl
+cast-result {n} {Dyn} {A} {B} = inj₁ refl
 
-cast-lemma-2 {n} {Var x₄} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Single x₃ A'} (VarA x₅ ()) x x₁ x₂)
+cast-ineq-singleton : {n : ℕ} {i : Size} {A' A B : Ty {n} {i}} {e : Exp {n} {i}} → A ≢ A' → cast (Single e A') A B ≡ B
+cast-ineq-singleton {n} {i} {A'} {A} {B} {e} neq
+  with A ≡ᵀ? A'
+...  | yes eq = contradiction eq neq
+...  | no ¬eq = {!!}
 
-cast-lemma-2 {n} {LabI x₄} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Single .VLab .(Label ⁅ x₄ ⁆)} (LabAI x₃) x x₁ x₂)
-  = contradiction x₁ (isnothing⇒¬isjust (cast-nothing-single{A = Label ⁅ x₄ ⁆}{B = Sigma nA B}{C = Sigma nA' B'}{V = VLab{x = x₄}}  (λ ()) λ ()))
-cast-lemma-2 {n} {Cast e x₄ x₅} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Single x₃ A'} j x x₁ x₂) = contradiction refl (ncast e x₄ x₅)
+cast-invert-single : {n : ℕ} {A' A B : Ty {n}} → Σ (Exp {n}) (λ e → (Σ (Ty {n}) (λ C → (cast A' A B ≡ Single e C))))
+                                               → Σ (Exp {n}) (λ e → (Σ (Ty {n}) (λ C → (A' ≡ Single e C)))) ⊎
+                                                 Σ (Exp {n}) (λ e → (Σ (Ty {n}) (λ C → (B ≡ Single e C))))
+cast-invert-single {n} {Single x A'} {A} {B} (fst , snd , eq) = inj₁ (x , (A' , refl))
 
-cast-lemma-2 {n} {Var x₃} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Sigma A' A''} (VarA x₄ ()) x x₁ x₂)
-cast-lemma-2 {n} {Cast e x₃ x₄} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Sigma A' A''} j x x₁ x₂) = contradiction refl (ncast e x₃ x₄)
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Bot} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Bot} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = UnitT} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = UnitT} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Dyn} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Dyn} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Label x₃} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Label x₃} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = Pi A' A''} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = Pi A' A''} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
-cast-lemma-2 {n} {e} {A} {nA} {nA'} {B} {B'} {nfA} {nfA'} ncast V (CastA {A' = CaseT x₃ f} j x x₁ x₂) = contradiction x₁ (isnothing⇒¬isjust (cast-nothing {A = CaseT x₃ f} {Sigma nA B} {Sigma nA' B'} (notsingle (λ e B W → λ ())) (λ ())))
+cast-invert-single {n} {UnitT} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {Label x} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {Pi A' A''} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {Sigma A' A''} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {CaseT x f} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {Bot} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
+cast-invert-single {n} {Dyn} {A} {Single e B} (fst , snd , eq) = inj₂ (e , (B , refl))
 
--- (V : B => C) ▷ A means A either C or Single _ C
-cast-lemma-3 : {n : ℕ} {e : Exp {n}} {A B C : Ty {n}} → Val e → [] ⊢ Cast e B C ▷ A → (A ≡ C) ⊎ (∃[ e ](∃[ W ](A ≡ Single{e = e} W C)))
-cast-lemma-3 {n} {e} {A} {B} {C} V (CastA{A' = A'} j x x₁ x₂)
-  with cast-result{n}{A'}{B}{C} x₁
-... | inj₁ x₃ = inj₁ (≡-trans (sym x₂) x₃)
-... | inj₂ (fst , fst₁ , snd) = inj₂ (fst , (fst₁ , (≡-trans (sym x₂) snd)))
+cast-invert-bot : {n : ℕ} {i : Size} {A B : Ty {n} {i}} {A' : Ty {n} {↑ˡ i}} → Bot ≢ B → Bot ≡ cast A' A B → Σ (Exp {n}) (λ e → A' ≡ Single e A)
+cast-invert-bot {n} {i} {A} {B} {Single x A'} neq eq
+  with A ≡ᵀ? A'
+...  | yes eq' rewrite eq' = x , refl
+...  | no ¬eq'
+     with cast-ineq-singleton{A' = A'}{A = A}{B = B} {!¬eq'!}
+...     | eq'' = {!!}
 
-------------------------------------------------------------------------
--- Types that are in normal form but not ground type
+-- cast-ineq-singleton : {n : ℕ} {A' A B : Ty {n}} {e : Exp {n}} → A ≢ A' → cast (Single e A') A B ≡ B
 
-data nf-not-g {n : ℕ} : Ty {n} → Set where
-  dyn : nf-not-g Dyn
-  bot : nf-not-g Bot
-  pi : {A B : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) ⊎ ¬ (B ≡ Dyn) → nf-not-g (Pi A B)
-  sigma : {A B : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) ⊎ ¬ (B ≡ Dyn) → nf-not-g (Sigma A B)
+cast-invert-bot {n} {i} {A} {B} {UnitT} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {Label x} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {Pi A' A''} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {Sigma A' A''} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {CaseT x f} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {Bot} neq eq = {!!}
+cast-invert-bot {n} {i} {A} {B} {Dyn} neq eq = {!!}
 
-nf-not-g-⊆ : {n : ℕ} {T : Ty {n}} → TyNf T → ¬ (TyG T) → nf-not-g T
-nf-not-g-⊆ {n} {.Bot} NfBot ntyg = bot
-nf-not-g-⊆ {n} {.UnitT} NfUnit ntyg = contradiction GUnit ntyg
-nf-not-g-⊆ {n} {.(Label _)} NfLabel ntyg = contradiction GLabel ntyg
-nf-not-g-⊆ {n} {.Dyn} NfDyn ntyg = dyn  
-nf-not-g-⊆ {n} {.(Pi _ _)} (NfPi{A = A}{B}{nfA = nfA}) ntyg
-  with A ≡ᵀ? Dyn
-...  | no ¬p = pi nfA (inj₁ ¬p)
-...  | yes p
-     with B ≡ᵀ? Dyn
-...     | no ¬p' = pi nfA (inj₂ ¬p')
-...     | yes p' rewrite p | p' = contradiction GPi ntyg
-nf-not-g-⊆ {n} {.(Sigma _ _)} (NfSigma{A = A}{B}{nfA = nfA}) ntyg
-  with A ≡ᵀ? Dyn
-...  | no ¬p = sigma nfA (inj₁ ¬p)
-...  | yes p
-     with B ≡ᵀ? Dyn
-...     | no ¬p' = sigma nfA (inj₂ ¬p')
-...     | yes p' rewrite p | p' = contradiction GSigma ntyg
+singleton-values : {n : ℕ} {e : Exp {n}} {A : Ty {n}} → Val e → [] ⊢ e ▷ A → Σ (Exp {n}) (λ e' → (Σ (Ty {n}) (λ B → ( A ≡ Single e' B)))) → (A ≡ Single UnitE UnitT) ⊎ (∃[ l ](A ≡ Single (LabI l) (Label ⁅ l ⁆)))
+singleton-values {n} {.UnitE} {.(Single UnitE UnitT)} V (UnitAI x) (fst , snd , eq) = inj₁ refl
+singleton-values {n} {.(LabI _)} {.(Single (LabI _) (Label ⁅ _ ⁆))} V (LabAI{l = l} x) (fst , snd , eq) = inj₂ (l , refl)
+singleton-values {n} {(Cast e G Dyn)} {A} (VCast V x₁) (CastA{A' = A'} j x) (fst , snd , eq)
+  with cast-invert-single{A' = A'}{A = G}{B = Dyn}  (fst , snd , ≡-trans (sym x) eq)
+...   | inj₁ (fst' , snd' , eq')
+      with singleton-values V j (fst' , snd' , eq')
+...      | inj₁ eq'' = {!!}
+...      | inj₂ (l , eq'') = {!!}
+singleton-values {n} {.(Cast _ (Pi _ _) (Pi _ _))} {A} (VCastFun V) (CastA j x) (fst , snd , eq) = {!!}
 
-nf-not-g-⊇ : {n : ℕ} {T : Ty {n}} → nf-not-g T → TyNf T × ¬ (TyG T)
-nf-not-g-⊇ {n} {.Dyn} dyn = NfDyn , λ ()
-nf-not-g-⊇ {n} {.Bot} bot = NfBot , λ ()
-nf-not-g-⊇ {n} {(Pi A B)} (pi x (inj₁ x₁)) = NfPi{nfA = x} , ϱ
-  where
-  ϱ : ¬ (TyG (Pi A B))
-  ϱ GPi = contradiction refl x₁
-nf-not-g-⊇ {n} {(Pi A B)} (pi x (inj₂ y)) = NfPi{nfA = x} , ϱ
-  where
-  ϱ : ¬ (TyG (Pi A B))
-  ϱ GPi = contradiction refl y
-nf-not-g-⊇ {n} {(Sigma A B)} (sigma x (inj₁ x₁)) = (NfSigma{nfA = x}) , ϱ
-  where
-  ϱ : ¬ (TyG (Sigma A B))
-  ϱ GSigma = contradiction refl x₁
-nf-not-g-⊇ {n} {(Sigma A B)} (sigma x (inj₂ y)) = NfSigma{nfA = x} , ϱ
-  where
-  ϱ : ¬ (TyG (Sigma A B))
-  ϱ GSigma = contradiction refl y
-  
--- Produce ground type for normal form
-produce-ground : {n : ℕ} {A : Ty {n}} → TyNf A → ¬ (A ≡ Dyn) → ¬ (A ≡ Bot) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A))
-produce-ground {n} {.Bot} NfBot neq neq' j = contradiction refl neq'
-produce-ground {n} {.Dyn} NfDyn neq neq' j = contradiction refl neq
-produce-ground {n} {.UnitT} NfUnit neq neq' j = UnitT , (GUnit , (AConsRefl empty))
-produce-ground {n} {(Label s)} NfLabel neq neq' j = Label s , GLabel , (AConsRefl empty)
-produce-ground {n} {Pi A B} (NfPi {nfA = nfA}) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , (AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
-produce-ground {n} {(Sigma A B)} (NfSigma{nfA = nfA}) neq neq' (SigmaF j j₁) = (Sigma Dyn Dyn) , (GSigma , (AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))))
-
--- Produce ground type for normal form but non-ground type
-produce-ground-ng : {n : ℕ} {A : Ty {n}} → nf-not-g A → ¬ (A ≡ Dyn) → ¬ (A ≡ Bot) → [] ⊢ A → ∃[ G ](TyG G × ([] ∣ [] ⊢ G ~ A) × ¬ (G ≡ A))
-produce-ground-ng {n} {.Bot} bot neq neq' j = contradiction refl neq'
-produce-ground-ng {n} {.Dyn} dyn neq neq' j = contradiction refl neq
-produce-ground-ng {n} {.(Pi _ _)} (pi x (inj₁ y)) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₁ (Pi-equiv (sym x₁))) y))
-produce-ground-ng {n} {.(Pi _ _)} (pi x (inj₂ y)) neq neq' (PiF j j₁) = (Pi Dyn Dyn) , (GPi , ((AConsPi (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₂ (Pi-equiv (sym x₁))) y)) 
-produce-ground-ng {n} {.(Sigma _ _)} (sigma x (inj₁ y)) neq neq' (SigmaF j j₁)
-  = (Sigma Dyn Dyn) , (GSigma , ((AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₁ (Sigma-equiv (sym x₁))) y))
-produce-ground-ng {n} {.(Sigma _ _)} (sigma x (inj₂ y)) neq neq' (SigmaF j j₁)
-  = (Sigma Dyn Dyn) , (GSigma , ((AConsSigma (AConsDynL empty) (AConsDynL (entry empty (AConsDynL empty) (DynF empty) j))) , λ x₁ → contradiction (proj₂ (Sigma-equiv (sym x₁))) y))
+-- cast-result : {n : ℕ} {A' A B : Ty {n}} → (cast A' G Dyn ≡ B) ⊎ (∃[ e ](cast A' A B ≡ Single e B)) ⊎ (cast A' A B ≡ Bot)
 
 ------------------------------------------------------------------------
 -- Canonical forms
 
 cf-label◁ : {n : ℕ} {s : Subset n} {e : Exp {n}} → [] ⊢ e ◁ Label s → Val e → ∃[ l ]((e ≡ LabI l) × l ∈ s)
-cf-label◁ {n} {s} {.(LabI l)} (SubTypeA (LabAI {l = l} x) (ASubSingle (ASubLabel x₃) x₁ x₂)) VLab = (l , (refl , ([l]⊆L⇒l∈L x₃)))
+cf-label◁ {n} {s} {.(LabI _)} (SubTypeA (LabAI {l = l} x) (ASubSingle (ASubLabel x₁) x₂ x₃)) VLab = (l , refl , ([l]⊆L⇒l∈L x₁))
+cf-label◁ {n} {s} {.UnitE} (SubTypeA (UnitAI empty) (ASubSingle () x x₂)) v
 
+-- cast-invert-bot : {n : ℕ} {i : Size} {A B : Ty {n} {i}} {A' : Ty {n} {↑ˡ i}} → Bot ≢ B → Bot ≡ cast A' A B → Σ (Exp {n}) (λ e → A' ≡ Single e A)
+cf-label◁ {n} {s} {(Cast e G Dyn)} (SubTypeA (CastA{A' = A'} x x₂) ASubBot) (VCast v x₁)
+  with cast-invert-bot{A = G}{B = Dyn}{A' = A'} (λ ()) x₂
+...  | fst , snd = {!!}
+cf-label◁ {n} {s} {.(Cast _ (Pi _ _) (Pi _ _))} (SubTypeA (CastA x x₂) ASubBot) (VCastFun v) = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubLabel x₁)) v = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubSingle x₁ x₃ x₄)) v = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseLL x₁ ins x₃)) v = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseXL x₁ x₃ x₄ x₅)) v = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseBL x₁)) v = {!!}
+cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseCL x₁)) v = {!!}
+
+
+
+{-
 cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ y) (ASubLabel{L = s'} x₃)) (VCast v x₂)
   with (cast-result{n}{A'}{A}{Dyn} x₁)
 ...  | inj₁ eq = contradiction (≡-trans (sym eq) y) λ () 
@@ -185,7 +169,7 @@ cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ 
 ...  | inj₁ eq = contradiction (≡-trans (sym eq) y) (λ ())
 ...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) y) λ ()  
 cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA j x x₁ y) (ASubCaseXL{eq = eq} leq x₃)) (VCast v x₂) = contradiction eq env-empty-++
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA j x x₁ y) (ASubCaseXLDyn{eq = eq} x₃)) (VCast v x₂) = contradiction eq env-empty-++
+-- cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA j x x₁ y) (ASubCaseXLDyn{eq = eq} x₃)) (VCast v x₂) = contradiction eq env-empty-++
 cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ y) ASubBot) (VCast v x₂)
   with (cast-result{n}{A'}{A}{Dyn} x₁)
 ...  | inj₁ eq = contradiction (≡-trans (sym eq) y) (λ ())
@@ -207,7 +191,8 @@ cf-label◁ {n} {s} {.(Cast _ (Pi _ _) (Pi _ _))} (SubTypeA (CastA{A = Pi nA B}{
 ...       | Label x₅ = contradiction (≡-trans (sym thd) y) (λ ())
 ...       | CaseT x₅ f = contradiction (≡-trans (sym thd) y) (λ ())
 ...       | Bot = contradiction (≡-trans (sym thd) y) (λ ())
-
+-}
+{-
 cf-pi : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ ∃[ N ](∃[ nA ](∃[ B' ](e ≡ Cast N (Pi nA B') (Pi A B))))
 cf-pi {n} {.(Var _)} {A} {B} (VarA x ()) VVar
 cf-pi {n} {(Abs e)} {A} {B} (PiAI j) VFun = inj₁ (e , refl)
@@ -634,3 +619,5 @@ progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AC
 progress {n} {Cast e .(Sigma _ _) .(Sigma _ _)} {T} (CastA {ok = ok} {ok'} j (AConsSigma x x₂) x₁ y) | result (RValue (VProd V W)) | result (NfSigma{nfA = nfA}) | result (NfSigma{nfA = nfA'}) | other-v{e = e}{neq} | no ¬eq | no ¬eq' |  (fst , snd , thd , fth)
 -------- ⟨⟨ V' , W' ⟩⟩ : Sigma A B => Sigma A B --> let x = (V' : A => A') in ⟨⟨ x , W' : (B[V'/x] => B') ⟩⟩  
   = step (Cast-Pair{w = W})
+
+-}
