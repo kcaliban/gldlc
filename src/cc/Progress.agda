@@ -56,9 +56,8 @@ env-empty-++ : {n : ℕ} {Γ' Γ : TEnv {n}} {D : Ty {n}} → ¬ ([] ≡ Γ' ++ 
 env-empty-++ {n} {Γ} {Γ'} {D} eq = contradiction (env-len-eq eq) (Data.Nat.Properties.<⇒≢ (env-len->-++ (env-len->{T = D})))
 
 ------------------------------------------------------------------------
--- Lemmas for cast function
+-- Lemmas for cast function & expressions
 
--- evaluate-full (gas 1000) (Cast e A B)
 cast-result : {n : ℕ} {A' A B : Ty {n}} → (cast A' A B ≡ B) ⊎ (∃[ e ](cast A' A B ≡ Single e B)) ⊎ (cast A' A B ≡ Bot)
 cast-result {n} {Single e A'} {A} {B}
   with A ≡ᵀ? A'
@@ -384,6 +383,22 @@ cast-value-ground-dyn-type {n} {.(ProdV _ _)} {G} {T} V tygg (CastA (PairAI j j�
 ------------------------------------------------------------------------
 -- Canonical forms
 
+cf-label◁ : {n : ℕ} {s : Subset n} {e : Exp {n}} → [] ⊢ e ◁ Label s → Val e → ∃[ l ]((e ≡ LabI l) × l ∈ s)
+cf-label◁ {n} {s} {.(LabI _)} (SubTypeA (LabAI {l = l} x) (ASubSingle (ASubLabel x₁) x₂ x₃)) VLab = (l , refl , ([l]⊆L⇒l∈L x₁))
+cf-label◁ {n} {s} {.UnitE} (SubTypeA (UnitAI empty) (ASubSingle () x x₂)) v
+cf-label◁ {n} {s} {(Cast e G Dyn)} (SubTypeA (CastA{A' = A'}{ok = ok}{ok' = ok'} x x₂) leq) (VCast v x₁)
+  with (cast-value-ground-dyn-type v x₁ (CastA{A' = A'}{ok = ok}{ok' = ok'} x x₂))
+...  | inj₁ z rewrite z = contradiction leq (λ ())
+...  | inj₂ (fst , snd) rewrite snd = contradiction leq ϱ
+     where ϱ : ¬ ([] ⊢ Single fst Dyn ≤ᵀ Label s)
+           ϱ (ASubSingle () x z)
+cf-label◁ {n} {s} {(Cast e (Pi A B) (Pi A' B'))} (SubTypeA (CastA{ok = ok}{ok' = ok'} x x₂) leq) (VCastFun v)
+  with (cast-value-pi-type v (CastA{ok = ok}{ok' = ok'} x x₂))
+...  | inj₁ z rewrite z = contradiction leq (λ ())
+...  | inj₂ (fst , snd , thd) rewrite snd = contradiction leq ϱ
+     where ϱ : ¬ ([] ⊢ Single fst (Pi A' B') ≤ᵀ Label s)
+           ϱ (ASubSingle () x z)
+
 cf-pi : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ ∃[ e' ](∃[ A' ](∃[ B' ](e ≡ Cast e' (Pi A' B') (Pi A B))))
 cf-pi {n} {(Cast e G Dyn)} {A} {B} (CastA{A' = A'} j x) (VCast V x₁)
   with cast-result{A' = A'}{A = G}{B = Dyn}
@@ -397,24 +412,42 @@ cf-pi {n} {(Cast e (Pi A' B') (Pi A'' B''))} {A} {B} (CastA{A' = A°} j x) (VCas
 ...  | inj₂ (inj₂ y) = contradiction (≡-trans x y) λ ()
 cf-pi {n} {(Abs e)} {A} {B} (PiAI j) VFun = inj₁ (e , refl)
 
-cf-label◁ : {n : ℕ} {s : Subset n} {e : Exp {n}} → [] ⊢ e ◁ Label s → Val e → ∃[ l ]((e ≡ LabI l) × l ∈ s)
-cf-label◁ {n} {s} {.(LabI _)} (SubTypeA (LabAI {l = l} x) (ASubSingle (ASubLabel x₁) x₂ x₃)) VLab = (l , refl , ([l]⊆L⇒l∈L x₁))
-cf-label◁ {n} {s} {.UnitE} (SubTypeA (UnitAI empty) (ASubSingle () x x₂)) v
-cf-label◁ {n} {s} {(Cast e G Dyn)} (SubTypeA (CastA{A' = A'}{ok = ok}{ok' = ok'} x x₂) ASubBot) (VCast v x₁)
-  with (cast-value-ground-dyn-type v x₁ (CastA{A' = A'}{ok = ok}{ok' = ok'} x x₂))
+cf-pi-⇓ : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ Pi A B → Val e → ∃[ e' ](e ≡ Abs e') ⊎ ∃[ e' ](∃[ A' ](∃[ B' ](e ≡ Cast e' (Pi A' B') (Pi A B))))
+cf-pi-⇓ {n} {e} {.(Pi A B)} {A} {B} j AURefl-P v = cf-pi j v
+cf-pi-⇓ {n} {.(Cast _ _ Dyn)} {.(CaseT _ _)} {A} {B} (CastA{ok = ok}{ok' = ok'} j x₁) (AUCaseL-P x ins unf) (VCast v x₂)
+  with (cast-value-ground-dyn-type v x₂ (CastA{ok = ok}{ok' = ok'} j x₁))
 ...  | inj₁ ()
 ...  | inj₂ ()
-cf-label◁ {n} {s} {.(Cast _ (Pi _ _) (Pi _ _))} (SubTypeA (CastA{ok = ok}{ok' = ok'} x x₂) ASubBot) (VCastFun v)
-  with (cast-value-pi-type v (CastA{ok = ok}{ok' = ok'} x x₂))
+cf-pi-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} (CastA{ok = ok}{ok' = ok'} j x₁) (AUCaseL-P x ins unf) (VCastFun v)
+  with (cast-value-pi-type v (CastA{ok = ok}{ok' = ok'} j x₁))
 ...  | inj₁ ()
 ...  | inj₂ ()
+cf-pi-⇓ {n} {e} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (ℕ.suc (length _))) _)} j (AUCaseX-P{eq = eq} x x₁ x₂) v = contradiction eq env-empty-++
+cf-pi-⇓ {n} {e} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} j (AUCaseXDyn-P{eq = eq} x) v = contradiction eq env-empty-++
 
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubLabel x₁)) v = {!!}
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubSingle x₁ x₃ x₄)) v = {!!}
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseLL x₁ ins x₃)) v = {!!}
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseXL x₁ x₃ x₄ x₅)) v = {!!}
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseBL x₁)) v = {!!}
-cf-label◁ {n} {s} {.(Cast _ _ _)} (SubTypeA (CastA x x₂) (ASubCaseCL x₁)) v = {!!}
+cf-sigma : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Sigma A B) → Val e → ∃[ e' ](∃[ e'' ]( e ≡ ProdV e' e'' ))
+cf-sigma {n} {.(Cast _ _ Dyn)} {A} {B} (CastA{ok = ok}{ok' = ok'} j x) (VCast v x₁)
+  with (cast-value-ground-dyn-type v x₁ (CastA{ok = ok}{ok' = ok'} j x))
+...  | inj₁ ()
+...  | inj₂ ()
+cf-sigma {n} {.(Cast _ (Pi _ _) (Pi _ _))} {A} {B} (CastA{ok = ok}{ok' = ok'} j x) (VCastFun v)
+  with (cast-value-pi-type v (CastA{ok = ok}{ok' = ok'} j x))
+...  | inj₁ ()
+...  | inj₂ ()
+cf-sigma {n} {.(ProdV _ _)} {A} {B} (PairAI{e = e}{N = N} j j₁) v = e , (N , refl)
+
+cf-sigma-⇓ : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ Sigma A B → Val e → ∃[ e' ](∃[ e'' ]( e ≡ ProdV e' e'' ))
+cf-sigma-⇓ {n} {e} {.(Sigma A B)} {A} {B} j AURefl-S v = cf-sigma j v
+cf-sigma-⇓ {n} {.(Cast _ _ Dyn)} {.(CaseT _ _)} {A} {B} (CastA{ok = ok}{ok' = ok'} j x₁) (AUCaseL-S x ins unf) (VCast v x₂)
+  with (cast-value-ground-dyn-type v x₂ (CastA{ok = ok}{ok' = ok'} j x₁))
+...  | inj₁ ()
+...  | inj₂ ()
+cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} (CastA{ok = ok}{ok' = ok'} j x₁) (AUCaseL-S x ins unf) (VCastFun v)
+  with (cast-value-pi-type v (CastA{ok = ok}{ok' = ok'} j x₁))
+...  | inj₁ ()
+...  | inj₂ ()
+cf-sigma-⇓ {n} {e} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (ℕ.suc (length _))) _)} j (AUCaseX-S{eq = eq} x x₁ x₂) v = contradiction eq env-empty-++
+cf-sigma-⇓ {n} {e} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} j (AUCaseXDyn-S{eq = eq} x) v = contradiction eq env-empty-++
 
 ------------------------------------------------------------------------
 -- Progress

@@ -3,7 +3,6 @@
 ------------------------------------------------------------------------
 
 {-# OPTIONS --sized-types #-}
-{-# OPTIONS --allow-unsolved-metas #-}  -- TO BE REMOVED
 module Syntax where
 
 open import Data.Nat
@@ -65,17 +64,6 @@ data ValU {n} where
   UVarCast : {x : ℕ} {G : Ty {n}} → TyG G → ValU (Cast (Var x) Dyn G)
   UValCast : {e : Exp {n}} {G : Ty {n}} → Val e → TyG G → ValU (Cast e Dyn G)
   UBlame : ValU Blame
-{-
-  UVar : {x : ℕ} → ValU (Var x)
-  -- determinism for Cast e A B ⇒ split (ValU V) to all except VCast/VCastFun
-  UValUnit : ValU UnitE
-  UValLab : {x : Fin n} → ValU (LabI x)
-  UValFun : {N : Exp} → ValU (Abs N)
-  UValProd : {e e' : Exp} → (v : Val e) → Val e' → ValU (ProdV e e')
-  UCast : {e : Exp {n}} {A B : Ty {n}} → ValU e → ValU (Cast e A B)
-  UValProd' : {e e' : Exp} → ValU e → ValU e' → ValU (Prod e e')
-  UBlame : ValU Blame
--}
 
 data Val {n} where
   VUnit : Val UnitE
@@ -416,56 +404,91 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
 ValU? Var x = yes UVar
 ValU? UnitE = yes (UVal VUnit)
 ValU? Abs e = yes (UVal VFun)
-ValU? App e e₁ = no {!!}
-ValU? LabI x = {!!}
-ValU? CaseE e f = {!!}
-ValU? Prod e e₁ = {!!}
-ValU? ProdV e e₁ = {!!}
-ValU? LetP e e₁ = {!!}
-ValU? LetE e e₁ = {!!}
-ValU? Blame = {!!}
-ValU? Cast e x x₁ = {!!}
-{-
-ValU? Var x = yes UVar
-ValU? UnitE = yes UValUnit
-ValU? Abs e = yes UValFun
-ValU? App e e₁ = no λ ()
-ValU? LabI x = yes UValLab
-ValU? CaseE e f = no λ ()
-ValU? Prod e e₁
-  with ValU? e | ValU? e₁
-...  | yes v | yes w = yes (UValProd' v w)
-...  | no ¬v | yes w = no ϱ
-     where ϱ : ¬ ValU (Prod e e₁)
-           ϱ (UValProd' v x) = ¬v v
-...  | yes v | no ¬w = no ϱ
-     where ϱ : ¬ ValU (Prod e e₁)
-           ϱ (UValProd' v x) = ¬w x
-...  | no ¬v | no ¬w = no ϱ
-     where ϱ : ¬ ValU (Prod e e₁)
-           ϱ (UValProd' v x) = ¬v v
-ValU? ProdV e e₁
-  with Val? e | Val? e₁
-...  | yes v | yes w = yes (UValProd v w)
-...  | no ¬v | yes w = no ϱ
-     where ϱ : ¬ ValU (ProdV e e₁)
-           ϱ (UValProd v x) = ¬v v
-...  | yes v | no ¬w = no ϱ
-     where ϱ : ¬ ValU (ProdV e e₁)
-           ϱ (UValProd v x) = ¬w x
-...  | no ¬v | no ¬w = no ϱ
-     where ϱ : ¬ ValU (ProdV e e₁)
-           ϱ (UValProd v x) = ¬v v
-ValU? LetP e e₁ = no λ ()
-ValU? LetE e e₁ = no λ ()
+ValU? App e e₁ = no ϱ
+  where ϱ : ¬ ValU (App e e₁)
+        ϱ (UVal ())
+ValU? LabI x = yes (UVal VLab)
+ValU? CaseE e f = no ϱ
+  where ϱ : ¬ ValU (CaseE e f)
+        ϱ (UVal ())
+ValU? Prod e e₁ = no ϱ
+  where ϱ : ¬ ValU (Prod e e₁)
+        ϱ (UVal ())
+ValU? LetP e e₁ = no ϱ
+  where ϱ : ¬ ValU (LetP e e₁)
+        ϱ (UVal ())
+ValU? LetE e e₁ = no ϱ
+  where ϱ : ¬ ValU (LetE e e₁)
+        ϱ (UVal ())
 ValU? Blame = yes UBlame
-ValU? Cast e A B
-  with ValU? e
-...  | yes v = yes (UCast v)
+ValU? ProdV e e'
+  with Val? (ProdV e e')
+...  | yes v = yes (UVal v)
 ...  | no ¬v = no ϱ
-     where ϱ : ¬ (ValU (Cast e A B))
-           ϱ (UCast v) = ¬v v
--}
+  where ϱ : ¬ ValU (ProdV e e')
+        ϱ (UVal v) = contradiction v ¬v
+ValU? Cast e x x₁
+  with Val? (Cast e x x₁)
+...  | yes v = yes (UVal v)
+ValU? Cast e x x₁ | no ¬v
+  with Val? e
+ValU? Cast e x x₁ | no ¬v | yes v'
+  with x ≡ᵀ? Dyn
+...  | no ¬eq = no ϱ
+     where ϱ : ¬ ValU (Cast e x x₁)
+           ϱ (UVal x) = ¬v x
+           ϱ (UValCast x x₁) = contradiction refl ¬eq
+...  | yes eq rewrite eq
+     with TyG? x₁
+...     | yes tyg = yes (UValCast v' tyg)
+...     | no ¬tyg = no ϱ
+        where ϱ : ¬ ValU (Cast e Dyn x₁)
+              ϱ (UVal x) = ¬v x
+              ϱ (UValCast x x₁) = contradiction x₁ ¬tyg
+(ValU? Cast (Var x₂) x x₁) | no ¬v | no ¬v'
+  with x ≡ᵀ? Dyn
+...  | no ¬eq = no ϱ
+     where ϱ : ¬ ValU (Cast (Var x₂) x x₁)
+           ϱ (UVal x) = ¬v x
+           ϱ (UValCast x x₁) = contradiction refl ¬eq
+           ϱ (UVarCast x) = contradiction refl ¬eq
+...  | yes eq rewrite eq
+     with TyG? x₁
+...     | yes tyg = yes (UVarCast tyg)
+...     | no ¬tyg = no ϱ
+        where ϱ : ¬ ValU (Cast (Var x₂) Dyn x₁)
+              ϱ (UVal x) = ¬v x
+              ϱ (UValCast x x₁) = contradiction x₁ ¬tyg
+              ϱ (UVarCast x) = contradiction x ¬tyg
+(ValU? Cast UnitE x x₁) | no ¬v | no ¬v' = contradiction VUnit ¬v'
+(ValU? Cast (Abs e) x x₁) | no ¬v | no ¬v' = contradiction VFun ¬v'
+(ValU? Cast (LabI x₂) x x₁) | no ¬v | no ¬v' = contradiction VLab ¬v'
+(ValU? Cast (App e e₁) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (App e e₁) x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast (CaseE e f) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (CaseE e f) x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast (Prod e e₁) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (Prod e e₁) x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast (ProdV e e₁) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (ProdV e e₁) x x₁)
+        ϱ (UVal x) = ¬v x
+        ϱ (UValCast x x₁) = ¬v' x
+(ValU? Cast (LetP e e₁) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (LetP e e₁) x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast (LetE e e₁) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (LetE e e₁) x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast Blame x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast Blame x x₁)
+        ϱ (UVal x) = ¬v x
+(ValU? Cast (Cast e x₂ x₃) x x₁) | no ¬v | no ¬v' = no ϱ
+  where ϱ : ¬ ValU (Cast (Cast e x₂ x₃) x x₁)
+        ϱ (UVal x) = ¬v x
+        ϱ (UValCast x x₁) = ¬v' x
 
 TyB? UnitT = yes BUnit
 TyB? Label x = yes BLabel

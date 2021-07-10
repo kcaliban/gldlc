@@ -1004,6 +1004,6 @@ f₃-1 = refl
 blame : (evaluate-full (gas 100) (Cast (LabI zero) UnitT (Label (inside ∷ [])))) ≡ (Blame , result RBlame)
 blame = refl
 
--- _ : (evaluate-full (gas 100) (CaseE{s = (inside ∷ (inside ∷ []))} (Cast (Cast (LabI zero) (Label (inside ∷ (outside ∷ []))) Dyn) Dyn (Label (inside ∷ (inside ∷ [])))) (λ l → λ ins → UnitE))) ≡ (UnitE , (result (RValue VUnit)))
--- _ = refl
+_ : (evaluate-full (gas 100) (CaseE{s = (inside ∷ (inside ∷ []))} (Cast (Cast (LabI zero) (Label (inside ∷ (outside ∷ []))) Dyn) Dyn (Label (inside ∷ (inside ∷ [])))) (λ l → λ ins → UnitE))) ≡ (UnitE , (result (RValue VUnit)))
+_ = refl
 
