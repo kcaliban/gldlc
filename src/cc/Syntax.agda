@@ -3,6 +3,7 @@
 ------------------------------------------------------------------------
 
 {-# OPTIONS --sized-types #-}
+{-# OPTIONS --allow-unsolved-metas #-}  -- TO BE REMOVED
 module Syntax where
 
 open import Data.Nat
@@ -41,7 +42,7 @@ data Exp {n} where
   LetP : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   LetE : {i : Size} → Exp {n} {i} → Exp {n} {i} → Exp {n} {↑ˡ i}
   Blame : {i : Size} → Exp {n} {↑ˡ i}
-  Cast : {i j q : Size} → Exp {n} {i} → Ty {n} {j} → Ty {n} {q} → Exp {n} {i ⊔ˢ (j ⊔ˢ q)}
+  Cast : {i : Size} → Exp {n} {i} → Ty {n} {i} → Ty {n} {i} → Exp {n} {↑ˡ i}
 
 data Ty {n} where
   UnitT : {i : Size} → Ty {n} {↑ˡ i}
@@ -56,19 +57,25 @@ data Ty {n} where
 data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data ValU {n : ℕ} : {i : Size} → Exp {n} {i} → Set
 data TyG {n : ℕ} : Ty {n} → Set
-data TyG' {n : ℕ} : Ty {n} → Set
 data TyB {n : ℕ} : Ty {n} → Set
 
 data ValU {n} where
+  UVar : {x : ℕ} → ValU (Var x)
+  UVal : {e : Exp {n}} → Val e → ValU e
+  UVarCast : {x : ℕ} {G : Ty {n}} → TyG G → ValU (Cast (Var x) Dyn G)
+  UValCast : {e : Exp {n}} {G : Ty {n}} → Val e → TyG G → ValU (Cast e Dyn G)
+  UBlame : ValU Blame
+{-
   UVar : {x : ℕ} → ValU (Var x)
   -- determinism for Cast e A B ⇒ split (ValU V) to all except VCast/VCastFun
   UValUnit : ValU UnitE
   UValLab : {x : Fin n} → ValU (LabI x)
   UValFun : {N : Exp} → ValU (Abs N)
   UValProd : {e e' : Exp} → (v : Val e) → Val e' → ValU (ProdV e e')
-  UVarCast : {x : ℕ} {A B : Ty {n}} → ValU (Cast (Var x) A B)
-  UValCast : {e : Exp {n}} {A B : Ty {n}} → Val e → ValU (Cast e A B)
+  UCast : {e : Exp {n}} {A B : Ty {n}} → ValU e → ValU (Cast e A B)
+  UValProd' : {e e' : Exp} → ValU e → ValU e' → ValU (Prod e e')
   UBlame : ValU Blame
+-}
 
 data Val {n} where
   VUnit : Val UnitE
@@ -78,22 +85,19 @@ data Val {n} where
   VCast : {e : Exp} {G : Ty {n}} → Val e → TyG G → Val (Cast e G Dyn)
   VCastFun : {e : Exp} {A A' B B' : Ty {n}}  → Val e → Val (Cast e (Pi A B) (Pi A' B'))
 
-data TyG' {n} where
-  GUnit : TyG' UnitT
-  GLabel : {s : Subset n} → TyG' (Label s)
-  GPi : TyG' (Pi Dyn Dyn)
-  GSigma : TyG' (Sigma Dyn Dyn)  
-
 data TyG {n} where
-  GSingle : {e : Exp {n}} {V : Val e} {G : Ty} {tygG : TyG' G} → TyG (Single e G)
-  GG' : {T : Ty {n}} → TyG' T → TyG T
+  GUnit : TyG UnitT
+  GLabel : {s : Subset n} → TyG (Label s)
+  GPi : TyG (Pi Dyn Dyn)
+  GSigma : TyG (Sigma Dyn Dyn)
+  GSingleLabel : {e : Exp {n}} {V : Val e} {s : Subset n} → TyG (Single e (Label s))
+  GSingleUnit : {e : Exp {n}} {V : Val e} → TyG (Single e (UnitT))  
 
 data TyB {n} where
   BUnit : TyB UnitT
   BLabel : {s : Subset n} → TyB (Label s)
   BSingleLab : {l : Fin n} {L : Subset n} → TyB (Single (LabI l) (Label L))
   BSingleUnit : TyB (Single UnitE UnitT)
---  BDyn : TyB Dyn
 
 ------------------------------------------------------------------------
 -- predicates, relations, views
@@ -141,20 +145,15 @@ data _∈`ᵀ_ {n} where
 
 -- generalized values incorporate values
 val⊂valu : {n : ℕ} {e : Exp {n}} → Val e → ValU e
-val⊂valu {n} {.UnitE} VUnit = UValUnit
-val⊂valu {n} {.(LabI _)} VLab = UValLab
-val⊂valu {n} {.(Abs _)} VFun = UValFun
-val⊂valu {n} {.(ProdV _ _)} (VProd v v₁) = UValProd v v₁
-val⊂valu {n} {.(Cast _ _ Dyn)} (VCast v x) = UValCast v
-val⊂valu {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun v) = UValCast v
+val⊂valu {n} {e} v = UVal v
 
 -- makes differentiating between cast and non-cast subexpressions
 -- in progress simpler
-data CastView {n : ℕ} : {i : Size} → Exp {n} {i} → Set where
+data CastView {n : ℕ} : Exp {n} → Set where
   cast-v : {e : Exp {n}} {A B : Ty {n}} → CastView (Cast e A B)
   other-v : {e : Exp {n}} {neq : ∀ e' A B → e ≢ Cast e' A B} → CastView e
 
-castView : {i : Size} {n : ℕ} → (e : Exp {n} {i}) → CastView e
+castView :  {n : ℕ} → (e : Exp {n}) → CastView e
 castView (Var x) = other-v{neq = λ e' A B → λ ()}
 castView UnitE = other-v{neq = λ e' A B → λ ()}
 castView Blame = other-v{neq = λ e' A B → λ ()}
@@ -220,22 +219,26 @@ issingle? Dyn = no ϱ
   where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Dyn ≡ Single e B))
         ϱ (a , b , ())
 
+data notSingle×Base {n : ℕ} : Ty {n} → Set where
+  BUnit : notSingle×Base UnitT
+  BLabel : {s : Subset n} → notSingle×Base (Label s)
+
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
-
-TyG'-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG' G) → x ≡ x'
-TyG'-uniqueness {n} {.UnitT} GUnit GUnit = refl
-TyG'-uniqueness {n} {.(Label _)} GLabel GLabel = refl
-TyG'-uniqueness {n} {.(Pi Dyn Dyn)} GPi GPi = refl
-TyG'-uniqueness {n} {.(Sigma Dyn Dyn)} GSigma GSigma = refl
 
 Val-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : Val {n} {i} e) → x ≡ x'
 TyG-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG G) → x ≡ x'
 
-TyG-uniqueness {n} {.(Single _ _)} (GSingle{V = V}{tygG = tygG}) (GSingle{V = V₁}{tygG = tygG'})
-  rewrite TyG'-uniqueness tygG tygG' | Val-uniqueness V V₁ = refl  
-TyG-uniqueness {n} {G} (GG' x) (GG' x₁)
-  rewrite TyG'-uniqueness x x₁ = refl
+TyG-uniqueness {n} {.UnitT} GUnit GUnit = refl
+TyG-uniqueness {n} {.(Label _)} GLabel GLabel = refl
+TyG-uniqueness {n} {.(Pi Dyn Dyn)} GPi GPi = refl
+TyG-uniqueness {n} {.(Sigma Dyn Dyn)} GSigma GSigma = refl
+TyG-uniqueness {n} {.(Single _ (Label _))} (GSingleLabel{V = V}) (GSingleLabel{V = V'})
+  with Val-uniqueness V V'
+...  | eq rewrite eq = refl
+TyG-uniqueness {n} {.(Single _ UnitT)} (GSingleUnit{V = V}) (GSingleUnit{V = V'})
+  with Val-uniqueness V V'
+...  | eq rewrite eq = refl
 
 Val-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} VUnit VUnit = refl
 Val-uniqueness {n} {.(↑ˡ ∞)} {.(LabI _)} VLab VLab = refl
@@ -250,24 +253,31 @@ Val-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFu
   rewrite (Val-uniqueness v v') = refl
 
 ValU-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : ValU {n} {i} e) → x ≡ x'
+ValU-uniqueness {n} {.∞} {.(Var _)} UVar UVar = refl
+ValU-uniqueness {n} {.∞} {e} (UVal x) (UVal x₁)
+  rewrite (Val-uniqueness x x₁) = refl
+ValU-uniqueness {n} {.∞} {.(Cast (Var _) Dyn Dyn)} (UVal (VCast () x₂)) (UVarCast x₁)
+ValU-uniqueness {n} {.∞} {.(Cast _ Dyn Dyn)} (UVal (VCast x ())) (UValCast x₁ x₂)
+ValU-uniqueness {n} {.∞} {.(Cast (Var _) Dyn _)} (UVarCast x) (UVal (VCast () z))
+ValU-uniqueness {n} {.∞} {.(Cast (Var _) Dyn _)} (UVarCast x) (UVarCast x₁)
+  rewrite (TyG-uniqueness x x₁) = refl
+ValU-uniqueness {n} {.∞} {.(Cast _ Dyn Dyn)} (UValCast x x₁) (UVal (VCast x₂ ()))
+ValU-uniqueness {n} {.∞} {.(Cast _ Dyn _)} (UValCast x x₁) (UValCast x₂ x₃)
+  rewrite (Val-uniqueness x x₂) | (TyG-uniqueness x₁ x₃) = refl
+ValU-uniqueness {n} {.∞} {.Blame} UBlame UBlame = refl
+{-
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Var _)} UVar UVar = refl
+ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Prod _ _)} (UValProd' v v₁) (UValProd' v' v₁')
+ rewrite (ValU-uniqueness v v') | (ValU-uniqueness v₁ v₁') = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} UValUnit UValUnit = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(LabI _)} UValLab UValLab = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Abs _)} UValFun UValFun = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV _ _)} (UValProd v v₁) (UValProd v' v₁')
   rewrite (Val-uniqueness v v') | (Val-uniqueness v₁ v₁') = refl
-ValU-uniqueness {n} {.(↑ˡ (↑ˡ ∞))} {.(Cast (Var _) _ _)} UVarCast UVarCast = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UValCast x) (UValCast x₁)
-  rewrite (Val-uniqueness x x₁) = refl
+ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UCast v) (UCast v')
+  rewrite (ValU-uniqueness v v') = refl
 ValU-uniqueness {n} {.(↑ˡ ∞)} {.Blame} UBlame UBlame = refl
-
-
-
-TyG'-Pi-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Pi A B) → A ≡ Dyn × B ≡ Dyn
-TyG'-Pi-inv {n} {.Dyn} {.Dyn} GPi = refl , refl
-
-TyG'-Sigma-inv : {n : ℕ} {A B : Ty {n}} → TyG' (Sigma A B) → A ≡ Dyn × B ≡ Dyn
-TyG'-Sigma-inv {n} {.Dyn} {.Dyn} GSigma = refl , refl
+-}
 
 Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} → Val (ProdV e e') → Val e'
 Val-ProdV-inv {n} {e} {e'} (VProd v val) = val
@@ -285,24 +295,19 @@ Sigma-equiv {n} {A} {.A} {B} {.B} refl = refl , refl
 Single-equiv : {n : ℕ} {e e' : Exp {n}} {A A' : Ty {n}} → Single e A ≡ Single e' A' → e ≡ e'
 Single-equiv {n} {e} {.e} {A} {.A} refl = refl
 
-notsingle×TyB⊂TyG' : {n : ℕ} {A : Ty {n}} → notSingle A → TyB A → TyG' A
-notsingle×TyB⊂TyG' (notsingle neq) BUnit = GUnit
-notsingle×TyB⊂TyG' (notsingle neq) BLabel = GLabel
-notsingle×TyB⊂TyG' (notsingle neq) (BSingleLab{l = l}{L = L}) = contradiction refl (neq (LabI l) (Label L))
-notsingle×TyB⊂TyG' (notsingle neq) BSingleUnit = contradiction refl (neq UnitE UnitT)
-
-TyG'⇒notSingle : {n : ℕ} {A : Ty {n}} → TyG' A → notSingle A
-TyG'⇒notSingle {n} {.UnitT} GUnit = notsingle λ e B → λ ()
-TyG'⇒notSingle {n} {.(Label _)} GLabel = notsingle λ e B → λ ()
-TyG'⇒notSingle {n} {.(Pi Dyn Dyn)} GPi = notsingle λ e B → λ ()
-TyG'⇒notSingle {n} {.(Sigma Dyn Dyn)} GSigma = notsingle λ e B → λ ()
-
 TyB⊂TyG : {n : ℕ} {A : Ty {n}} → TyB A → TyG A
-TyB⊂TyG BUnit = GG' GUnit
-TyB⊂TyG BLabel = GG' GLabel
-TyB⊂TyG BSingleLab = GSingle{V = VLab} {tygG = GLabel}
-TyB⊂TyG BSingleUnit = GSingle{V = VUnit} {tygG = GUnit}
+TyB⊂TyG {n} {.UnitT} BUnit = GUnit
+TyB⊂TyG {n} {.(Label _)} BLabel = GLabel
+TyB⊂TyG {n} {.(Single (LabI _) (Label _))} BSingleLab = GSingleLabel{V = VLab}
+TyB⊂TyG {n} {.(Single UnitE UnitT)} BSingleUnit = GSingleUnit{V = VUnit}
 
+TyG-notDyn : {n : ℕ} {A : Ty {n}} → TyG A → A ≢ Dyn
+TyG-notDyn {n} {.UnitT} GUnit = λ ()
+TyG-notDyn {n} {.(Label _)} GLabel = λ ()
+TyG-notDyn {n} {.(Pi Dyn Dyn)} GPi = λ ()
+TyG-notDyn {n} {.(Sigma Dyn Dyn)} GSigma = λ ()
+TyG-notDyn {n} {.(Single _ (Label _))} GSingleLabel = λ ()
+TyG-notDyn {n} {.(Single _ UnitT)} GSingleUnit = λ ()
 
 ------------------------------------------------------------------------
 -- decidable
@@ -314,68 +319,52 @@ _≡ᵉ?_ : {n : ℕ} {i : Size} (e e' : Exp {n} {i}) → Dec (e ≡ e')
 -- Decidable predicates
 Val?_ : {n : ℕ} (e : Exp {n}) → Dec (Val e)
 ValU?_ : {n : ℕ} (e : Exp {n}) → Dec (ValU e)
-TyG'?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG' A)
 TyG?_ : {n : ℕ} (A : Ty {n}) → Dec (TyG A)
 TyB?_ : {n : ℕ} (A : Ty {n}) → Dec (TyB A)
 
--- Predicate implementations
-TyG'? Bot = no λ ()
-TyG'? UnitT = yes GUnit
-TyG'? Dyn = no (λ ())
-TyG'? Single x A = no λ ()
-TyG'? Label x = yes GLabel
-TyG'? Pi x x₁
-  with x ≡ᵀ? x₁
-...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG'-Pi-inv x₂)) (sym (proj₂ (TyG'-Pi-inv x₂)))) ¬p)
-...  | yes p
-     rewrite (sym p)
-     with x ≡ᵀ? Dyn
-...     | yes p' rewrite p' = yes GPi
-...     | no ¬p' = no λ x₂ → contradiction (proj₁ (TyG'-Pi-inv x₂)) ¬p'
-TyG'? Sigma x x₁
-  with x ≡ᵀ? x₁
-...  | no ¬p = no (λ x₂ → contradiction (≡-trans (proj₁ (TyG'-Sigma-inv x₂)) (sym (proj₂ (TyG'-Sigma-inv x₂)))) ¬p)
-...  | yes p
-     rewrite (sym p)
-     with x ≡ᵀ? Dyn
-...     | yes p' rewrite p' = yes GSigma
-...     | no ¬p' = no  λ x₂ → contradiction (proj₁ (TyG'-Sigma-inv x₂)) ¬p'  
-TyG'? CaseT x f = no λ ()
-
-TyG? UnitT = yes (GG' GUnit)
-TyG? Label x = yes (GG' GLabel)
-
-TyG? Single x G
-  with TyG'? G | Val? x 
-... | yes p | yes v = yes (GSingle{V = v}{tygG = p})
-... | no ¬p | _ = no ϱ
-    where ϱ : TyG (Single x G) → Data.Empty.⊥
-          ϱ (GSingle{tygG = tygG}) = contradiction tygG ¬p
-... | _ | no ¬v = no ϱ          
-    where ϱ : TyG (Single x G) → Data.Empty.⊥
-          ϱ (GSingle{V = v})= ¬v v
-TyG? Pi G G₁
-  with TyG'? (Pi G G₁)
-...  | yes p = yes (GG' p)
-...  | no ¬p = no ϱ
-     where ϱ : TyG (Pi G G₁) → Data.Empty.⊥
-           ϱ (GG' x) = contradiction x ¬p
-TyG? Sigma G G₁
-  with TyG'? (Sigma G G₁)
-...  | yes p = yes (GG' p)
-...  | no ¬p = no ϱ
-     where ϱ : TyG (Sigma G G₁) → Data.Empty.⊥
-           ϱ (GG' x) = contradiction x ¬p
-
-TyG? CaseT x f = no ϱ
-  where ϱ : TyG (CaseT x f) → Data.Empty.⊥
-        ϱ (GG' x) = contradiction x λ ()
-TyG? Bot = no ϱ
-  where ϱ : TyG Bot → Data.Empty.⊥
-        ϱ (GG' x) = contradiction x λ ()
-TyG? Dyn = no ϱ
-  where ϱ : TyG Dyn → Data.Empty.⊥
-        ϱ (GG' x) = contradiction x λ ()
+TyG? UnitT = yes GUnit
+TyG? Label x = yes GLabel
+TyG? Single x A
+  with Val? x
+...  | no ¬v = no ϱ
+     where ϱ : ¬ TyG (Single x A)
+           ϱ (GSingleLabel{V = V}) = contradiction V ¬v
+           ϱ (GSingleUnit{V = V}) = contradiction V ¬v
+(TyG? Single x UnitT) | yes v = yes (GSingleUnit{V = v})
+(TyG? Single x (Label x₁)) | yes v = yes (GSingleLabel{V = v})
+(TyG? Single x (Single x₁ A)) | yes v = no λ ()
+(TyG? Single x (Pi A A₁)) | yes v = no λ ()
+(TyG? Single x (Sigma A A₁)) | yes v = no λ ()
+(TyG? Single x (CaseT x₁ f)) | yes v = no λ ()
+(TyG? Single x Bot) | yes v = no λ ()
+(TyG? Single x Dyn) | yes v = no λ ()
+TyG? Pi A A₁
+  with A ≡ᵀ? Dyn | A₁ ≡ᵀ? Dyn
+...  | yes eq | yes eq' rewrite eq | eq' = yes GPi
+...  | yes eq | no ¬eq' = no ϱ
+     where ϱ : ¬ (TyG (Pi A A₁))
+           ϱ GPi = contradiction refl ¬eq'
+...  | no ¬eq | yes eq' = no ϱ
+     where ϱ : ¬ (TyG (Pi A A₁))
+           ϱ GPi = contradiction refl ¬eq
+...  | no ¬eq | no ¬eq' = no ϱ
+     where ϱ : ¬ (TyG (Pi A A₁))
+           ϱ GPi = contradiction refl ¬eq'
+TyG? Sigma A A₁
+  with A ≡ᵀ? Dyn | A₁ ≡ᵀ? Dyn
+...  | yes eq | yes eq' rewrite eq | eq' = yes GSigma
+...  | yes eq | no ¬eq' = no ϱ
+     where ϱ : ¬ (TyG (Sigma A A₁))
+           ϱ GSigma = contradiction refl ¬eq'
+...  | no ¬eq | yes eq' = no ϱ
+     where ϱ : ¬ (TyG (Sigma A A₁))
+           ϱ GSigma = contradiction refl ¬eq
+...  | no ¬eq | no ¬eq' = no ϱ
+     where ϱ : ¬ (TyG (Sigma A A₁))
+           ϱ GSigma = contradiction refl ¬eq'
+TyG? CaseT x f = no λ ()
+TyG? Bot = no λ ()
+TyG? Dyn = no λ ()
 
 Val? LetP e e₁ = no (λ ())
 Val? LetE e e₁ = no (λ ())
@@ -425,12 +414,36 @@ Val? Cast e A B | yes v | _ | other-v{neq = neq} | _ | no ¬eq = no ϱ
 
 
 ValU? Var x = yes UVar
+ValU? UnitE = yes (UVal VUnit)
+ValU? Abs e = yes (UVal VFun)
+ValU? App e e₁ = no {!!}
+ValU? LabI x = {!!}
+ValU? CaseE e f = {!!}
+ValU? Prod e e₁ = {!!}
+ValU? ProdV e e₁ = {!!}
+ValU? LetP e e₁ = {!!}
+ValU? LetE e e₁ = {!!}
+ValU? Blame = {!!}
+ValU? Cast e x x₁ = {!!}
+{-
+ValU? Var x = yes UVar
 ValU? UnitE = yes UValUnit
 ValU? Abs e = yes UValFun
 ValU? App e e₁ = no λ ()
 ValU? LabI x = yes UValLab
 ValU? CaseE e f = no λ ()
-ValU? Prod e e₁ = no λ ()
+ValU? Prod e e₁
+  with ValU? e | ValU? e₁
+...  | yes v | yes w = yes (UValProd' v w)
+...  | no ¬v | yes w = no ϱ
+     where ϱ : ¬ ValU (Prod e e₁)
+           ϱ (UValProd' v x) = ¬v v
+...  | yes v | no ¬w = no ϱ
+     where ϱ : ¬ ValU (Prod e e₁)
+           ϱ (UValProd' v x) = ¬w x
+...  | no ¬v | no ¬w = no ϱ
+     where ϱ : ¬ ValU (Prod e e₁)
+           ϱ (UValProd' v x) = ¬v v
 ValU? ProdV e e₁
   with Val? e | Val? e₁
 ...  | yes v | yes w = yes (UValProd v w)
@@ -447,38 +460,12 @@ ValU? LetP e e₁ = no λ ()
 ValU? LetE e e₁ = no λ ()
 ValU? Blame = yes UBlame
 ValU? Cast e A B
-  with Val? e
-...  | yes v = yes (UValCast v)
-...  | no ¬v
-     with e
-...     | Var x₂ = yes (UVarCast{x = x₂})
-...     | UnitE = no (contradiction VUnit ¬v)
-...     | Abs u = no (contradiction VFun ¬v)
-...     | LabI x₂ = no (contradiction VLab ¬v)
-...     | Blame = no ϱ
-        where ϱ : ¬ ValU (Cast Blame A B)
-              ϱ (UValCast ())
-...     | App u u₁ = no ϱ
-        where ϱ : ¬ ValU (Cast (App u u₁) A B)
-              ϱ (UValCast ())
-...     | CaseE u f = no ϱ
-        where ϱ : ¬ ValU (Cast (CaseE u f) A B)
-              ϱ (UValCast ())
-...     | Prod u u₁ = no ϱ
-        where ϱ : ¬ ValU (Cast (Prod u u₁) A B)
-              ϱ (UValCast ())
-...     | LetP u u₁ = no ϱ
-        where ϱ : ¬ ValU (Cast (LetP u u₁) A B)
-              ϱ (UValCast ())
-...     | LetE u u₁ = no ϱ
-        where ϱ : ¬ ValU (Cast (LetE u u₁) A B)
-              ϱ (UValCast ())
-...     | ProdV u u₁ = no ϱ
-        where ϱ : ¬ ValU (Cast (ProdV u u₁) A B)
-              ϱ (UValCast x) = ¬v x
-...     | Cast u x₂ x₃ = no ϱ
-        where ϱ : ¬ ValU (Cast (Cast u x₂ x₃) A B)
-              ϱ (UValCast x) = ¬v x
+  with ValU? e
+...  | yes v = yes (UCast v)
+...  | no ¬v = no ϱ
+     where ϱ : ¬ (ValU (Cast e A B))
+           ϱ (UCast v) = ¬v v
+-}
 
 TyB? UnitT = yes BUnit
 TyB? Label x = yes BLabel

@@ -34,11 +34,14 @@ postulate
   ext : {A : Set}{B : A → Set}{f : (x : A) → B x} {g : (x : A) → B x} →
     (∀ x → f x ≡ g x) → f ≡ g
 
+------------------------------------------------------------------------
+-- Various properties
+
 ¬∃⇒∀¬ : {A : Set} {B : A → Set} → ¬ (∃[ a ](B a)) → ∀ a → ¬ (B a)
 ¬∃⇒∀¬ ¬∃ a b = ¬∃ (a , b)
 
-------------------------------------------------------------------------
--- Various properties
+A≢B→B≢A : {A : Set} → {a b : A} → ¬ (a ≡ b) → ¬ (b ≡ a)
+A≢B→B≢A {A} {a} {b} neq = λ x → contradiction (sym x) neq
 
 sum-eq : {A B : Set} {x y : A} → (inj₁{B = B} x) ≡ (inj₁{B = B} y) → x ≡ y
 sum-eq {A} {B} {x} {.x} refl = refl
