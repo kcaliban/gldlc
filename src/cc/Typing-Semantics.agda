@@ -156,10 +156,11 @@ data _⊢_▷_ {n} where
            → Γ ⊢ M ▷ A' → B' ≡ (cast A' A B) → Γ ⊢ Cast M A B ▷ B'
   UnitAI : {Γ : TEnv {n}} → ⊢ Γ ok → Γ ⊢ UnitE ▷ Single UnitE UnitT
   LabAI : {Γ : TEnv {n}} {l : Fin n} → ⊢ Γ ok → Γ ⊢ LabI l ▷ Single (LabI l) (Label ⁅ l ⁆)
-  LabAEl : {Γ : TEnv {n}} {B D : Ty {n}} {L : Subset n} {l : Fin n} {e : Exp {n}} {U : ValU e} {f : ∀ l → l ∈ L → Exp {n}}
-           → Γ ⊢ e ▷ Single (LabI l) D
-           → (ins : l ∈ L)
-           → Γ ⊢ (f l ins) ▷ B
+  LabAEl : {Γ : TEnv {n}} {B : Ty {n}} {L L' : Subset n} {l : Fin n} {e : Exp {n}} {U : ValU e} {f : ∀ l → l ∈ L → Exp {n}}
+           → Γ ⊢ e ▷ Single (LabI l) (Label L')
+           → (subs : L' ⊆ L)
+           → (ins : l ∈ L')
+           → Γ ⊢ (f l (subs ins)) ▷ B
            → Γ ⊢ CaseE e f ▷ B
   LabAEl-Bot : {Γ : TEnv {n}} {L : Subset n} {e : Exp {n}} {U : ValU e} {f : ∀ l → l ∈ L → Exp {n}}
                → Γ ⊢ e ▷ Bot
@@ -176,20 +177,12 @@ data _⊢_▷_ {n} where
             → (∀ l → (i : l ∈ L) → (Γ' ++ ⟨ ( (cast (Single (LabI l) (Label L)) (Label L) D)) , Γ ⟩) ⊢ (f l i) ▷ (f-t l i))
             → Θ ⊢ CaseE (Cast (Var (length Γ')) D (Label L)) f ▷ CaseT (Cast (Var (length Γ')) D (Label L)) f-t
   PiAI : {Γ : TEnv {n}} {A B : Ty {n}}  {M : Exp {n}} → ⟨ A , Γ ⟩ ⊢ M ▷ B → Γ ⊢ Abs M ▷ Pi A B
-  PiAE-V : {Γ : TEnv {n}} {A B D F : Ty {n}} {M N : Exp {n}} {V : Val N} {eq : F ≡ [ 0 ↦ N ]ᵀ B}
+  PiAE : {Γ : TEnv {n}} {A B D F : Ty {n}} {M N : Exp {n}} {eq : F ≡ [ 0 ↦ N ]ᵀ B}
          → Γ ⊢ M ▷ D
          → Γ ⊢ D ⇓ Pi A B
          → Γ ⊢ N ◁ A
-         → 0 ∈`ᵀ B  -- for determinism
          → Γ ⊢ F
-         → Γ ⊢ App M N ▷ F
-  PiAE : {Γ : TEnv {n}} {A B D : Ty {n}} {M N : Exp {n}}
-         → Γ ⊢ M ▷ D
-         → Γ ⊢ D ⇓ Pi A B
-         → Γ ⊢ N ◁ A
-         → ¬ (0 ∈`ᵀ B)
-         → Γ ⊢ B
-         → Γ ⊢ App M N ▷ B       
+         → Γ ⊢ App M N ▷ F     
   SigmaAI : {Γ : TEnv {n}} {A B : Ty {n}} {M N : Exp {n}}
             → Γ ⊢ M ◁ A
             → ⟨ A , Γ ⟩ ⊢ N ▷ B

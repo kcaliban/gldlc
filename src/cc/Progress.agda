@@ -449,6 +449,16 @@ cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} (CastA{ok 
 cf-sigma-⇓ {n} {e} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (length _)) _)} {.(CaseT (Var (ℕ.suc (length _))) _)} j (AUCaseX-S{eq = eq} x x₁ x₂) v = contradiction eq env-empty-++
 cf-sigma-⇓ {n} {e} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} j (AUCaseXDyn-S{eq = eq} x) v = contradiction eq env-empty-++
 
+cf-not-bot : {n : ℕ} {e : Exp {n}} → Val e → ¬ ([] ⊢ e ▷ Bot)
+cf-not-bot {n} {.(Cast _ _ Dyn)} (VCast V x₁) (CastA{ok = ok}{ok' = ok'} j x)
+  with (cast-value-ground-dyn-type V x₁ (CastA{ok = ok}{ok' = ok'} j x))
+...  | inj₁ ()
+...  | inj₂ ()
+cf-not-bot {n} {.(Cast _ (Pi _ _) (Pi _ _))} (VCastFun V) (CastA{ok = ok}{ok' = ok'} j x)
+  with (cast-value-pi-type V (CastA{ok = ok}{ok' = ok'} j x))
+...  | inj₁ ()
+...  | inj₂ ()
+
 ------------------------------------------------------------------------
 -- Progress
 
@@ -478,261 +488,67 @@ progress-types {n} {CaseT e f} (CaseF{U = U} (SubTypeA x x₁))
      with cf-label◁ (SubTypeA x x₁) x₂
 ...     | fst , snd , thd rewrite snd = step (β-Case{ins = thd})
 
-
-
-
-
-{-
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ y) (ASubLabel{L = s'} x₃)) (VCast v x₂)
-  with (cast-result{n}{A'}{A}{Dyn} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) y) λ () 
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) y) λ ()
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'}{B' = Single V A₁} j x x₁ y) (ASubSingle leq x₃ x₄)) (VCast v x₂)
-  with (cast-result{n}{A'}{A}{Dyn} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) y) (λ ())
-...  | inj₂ (fst , snd , thd)
-     with A₁
-...     | Single x₅ A'' = contradiction (≡-trans (sym thd) y) (λ ())
-...     | Label x₅ = contradiction (≡-trans (sym thd) y) (λ ())
-...     | CaseT x₅ f = contradiction (≡-trans (sym thd) y) (λ ())
-...     | Bot = contradiction (≡-trans (sym thd) y) (λ ())
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ y) (ASubCaseLL x₃ x₄ leq)) (VCast v x₂)
-  with (cast-result{n}{A'}{A}{Dyn} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) y) (λ ())
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) y) λ ()  
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA j x x₁ y) (ASubCaseXL{eq = eq} leq x₃)) (VCast v x₂) = contradiction eq env-empty-++
--- cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA j x x₁ y) (ASubCaseXLDyn{eq = eq} x₃)) (VCast v x₂) = contradiction eq env-empty-++
-cf-label◁ {n} {s} {.(Cast _ _ Dyn)} (SubTypeA (CastA{A = A}{A' = A'} j x x₁ y) ASubBot) (VCast v x₂)
-  with (cast-result{n}{A'}{A}{Dyn} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) y) (λ ())
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) y) (λ ())
-cf-label◁ {n} {s} {.(Cast _ (Pi _ _) (Pi _ _))} (SubTypeA (CastA{A = Pi nA B}{A' = A'}{B' = A₁} j x x₁ y) leq) (VCastFun{nA' = nA'}{B' = B'} v)
-  with (cast-result{n}{A'}{Pi nA B}{Pi nA' B'} x₁) | A₁
-... | inj₁ x₂ | Single x₃ lol = contradiction (≡-trans (sym x₂) y) (λ ())
-... | inj₁ x₂ | Label x₃ = contradiction (≡-trans (sym x₂) y) (λ ())
-... | inj₁ x₂ | CaseT x₃ f = contradiction (≡-trans (sym x₂) y) (λ ())
-... | inj₁ x₂ | Bot = contradiction (≡-trans (sym x₂) y) (λ ())
-... | inj₂ (fst , snd , thd) | Label x₂ = contradiction (≡-trans (sym thd) y) (λ ())
-... | inj₂ (fst , snd , thd) | CaseT x₂ f = contradiction (≡-trans (sym thd) y) (λ ())
-... | inj₂ (fst , snd , thd) | Bot = contradiction (≡-trans (sym thd) y) (λ ())
-... | inj₂ (fst , snd , thd) | Single x₂ A''
-    with leq
-...    | ASubSingle leq' x₃ x₄
-       with A''
-...       | Single x₅ A* = contradiction (≡-trans (sym thd) y) (λ ())
-...       | Label x₅ = contradiction (≡-trans (sym thd) y) (λ ())
-...       | CaseT x₅ f = contradiction (≡-trans (sym thd) y) (λ ())
-...       | Bot = contradiction (≡-trans (sym thd) y) (λ ())
--}
-{-
-cf-pi : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ ∃[ N ](∃[ nA ](∃[ B' ](e ≡ Cast N (Pi nA B') (Pi A B))))
-cf-pi {n} {.(Var _)} {A} {B} (VarA x ()) VVar
-cf-pi {n} {(Abs e)} {A} {B} (PiAI j) VFun = inj₁ (e , refl)
-cf-pi {n} {.(Cast _ _ Dyn)} {A} {B} (CastA{A = A'}{A' = A₁} j x₁ x₂ x₃) (VCast v x)
-  with (cast-result{A' = A₁}{A = A'}{B = Dyn} x₂)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) x₃) (λ ())
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₃) (λ ())
-cf-pi {n} {(Cast e (Pi nA B) (Pi nA' B'))} {A°} {B°} (CastA{A = Pi .nA .B}{B = Pi .nA' .B'}{A' = A'} j x x₁ x₂) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi nA B}{B = Pi nA' B'} x₁)
-...  | inj₁ eq rewrite (≡-trans (sym eq) x₂) = inj₂ (e , nA , (B , refl))
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₂) (λ ())
-
-cf-pi-⇓ : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Pi A B) → Val e → ∃[ e' ](e ≡ Abs e') ⊎ ∃[ N ](∃[ nA ](∃[ B' ](e ≡ Cast N (Pi nA B') (Pi A B))))
-cf-pi-⇓ {n} {e} {.(Pi A B)} {A} {B} j AURefl-P v = cf-pi j v
-
-cf-pi-⇓ {n} {.(Var _)} {.(Single _ _)} {A} {B} (VarA x ()) (AUSingle unf) VVar
-cf-pi-⇓ {n} {.(Var _)} {.(CaseT _ _)} {A} {B} (VarA y ()) (AUCaseL x x₁ unf) VVar
-
-cf-pi-⇓ {n} {.(LabI _)} {.(Single _ _)} {A} {B} (LabAI x) (AUSingle ()) VLab
-cf-pi-⇓ {n} {.(Cast _ _ Dyn)} {.(Single _ _)} {A} {B} (CastA{A = A₁}{B = Dyn}{A' = A'} j x₁ x₂ x₃) (AUSingle unf) (VCast v x)
-  with (cast-result{A' = A'}{A = A₁}{B = Dyn} x₂)
-...  | inj₁ x₄ = contradiction (≡-trans (sym x₄) x₃) (λ ())
-...  | inj₂ (fst , snd , thd) rewrite (proj₂ (Single-equiv (≡-trans (sym x₃) thd)))
-     with unf
-...     | ()
-cf-pi-⇓ {n} {(Cast M .(Pi _ _) .(Pi _ _))} {.(Single _ _)} {A°} {B°} (CastA{A = Pi nA B}{B = Pi nA' B'}{A' = A'} j x x₁ x₂) (AUSingle unf) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi nA B}{B = Pi nA' B'} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym x₂) eq) λ ()
-...  | inj₂ (fst , snd , thd) rewrite (proj₂ (Single-equiv (≡-trans (sym x₂) thd)))
-     with unf
-...     | AURefl-P = inj₂ (M , nA , (B , refl))
-
-cf-pi-⇓ {n} {.(Cast _ _ Dyn)} {.(CaseT _ _)} {A} {B} (CastA{A = A₁}{B = Dyn}{A' = A'} j x₃ x₄ x₅) (AUCaseL x x₁ unf) (VCast v x₂)
-  with (cast-result{A' = A'}{A = A₁}{B = Dyn} x₄)
-...  | inj₁ eq = contradiction (≡-trans (sym x₅) eq) λ ()
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₅) λ ()
-
-cf-pi-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A°} {B°} (CastA{A = Pi nA B}{B = Pi nA' B'}{A' = A'} j x₂ x₃ x₄) (AUCaseL x x₁ unf) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi nA B}{B = Pi nA' B'} x₃)
-...  | inj₁ eq = contradiction (≡-trans (sym x₄) eq) λ ()
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₄) λ () 
-
-cf-pi-⇓ {n} {e} {.(CaseT (UVal VVar) _)} {_} {.(CaseT (UVal VVar) _)} j (AUCaseX-P {eq = eq} x x₁) v = contradiction eq env-empty-++
-cf-pi-⇓ {n} {e} {.(CaseT (UCast VVar GLabel) _)} {_} {.(CaseT (UCast VVar GLabel) _)} j (AUCaseXDyn-P {eq = eq} x) v = contradiction eq env-empty-++
-
-cf-sigma : {n : ℕ} {e : Exp {n}} {A B : Ty {n}} → [] ⊢ e ▷ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e'')))
-cf-sigma {n} {.(Var _)} {A} {B} (VarA x ()) VVar
-cf-sigma {n} {.(ProdV v _)} {A} {B} j (VProd{e = e}{e' = e'} v v₁) = e , v , e' , refl
-cf-sigma {n} {.(Cast _ _ Dyn)} {A} {B} (CastA{A = A'}{A' = A₁} j x₁ x₂ x₃) (VCast v x)
-  with (cast-result{A' = A₁}{A = A'}{B = Dyn} x₂)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) x₃) (λ ())
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₃) (λ ())
-cf-sigma {n} {.(Cast _ (Pi _ _) (Pi _ _))} {A} {B} (CastA{A = Pi nA' B'}{B = Pi nA'' B''}{A' = A'} j x x₁ x₂) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi nA' B'}{B = Pi nA'' B''} x₁)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) x₂) (λ ())
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₂) (λ ())
-
-cf-sigma-⇓ : {n : ℕ} {e : Exp {n}} {D A B : Ty {n}} → [] ⊢ e ▷ D → [] ⊢ D ⇓ (Sigma A B) → Val e → ∃[ e' ](∃[ V ](∃[ e'' ](e ≡ ProdV{e = e'} V e'')))
-cf-sigma-⇓ {n} {e} {.(Sigma A B)} {A} {B} j AURefl-S v = cf-sigma j v 
-
-cf-sigma-⇓ {n} {.(Var _)} {.(Single _ _)} {A} {B} (VarA x ()) (AUSingle unf) VVar
-cf-sigma-⇓ {n} {.(Var _)} {.(CaseT _ _)} {A} {B} (VarA y ()) (AUCaseL x x₁ unf) VVar
-
-cf-sigma-⇓ {n} {.(LabI _)} {.(Single VLab (Label ⁅ _ ⁆))} {A} {B} (LabAI x) (AUSingle ()) VLab
-cf-sigma-⇓ {n} {.(Cast _ _ Dyn)} {.(Single _ _)} {A} {B} (CastA{A = A₁}{B = Dyn}{A' = A'} j x₁ x₂ x₃) (AUSingle unf) (VCast v x)
-  with (cast-result{A' = A'}{A = A₁}{B = Dyn} x₂)
-...  | inj₁ x₄ = contradiction (≡-trans (sym x₄) x₃) (λ ())
-...  | inj₂ (fst , snd , thd) rewrite (proj₂ (Single-equiv (≡-trans (sym x₃) thd)))
-     with unf
-...     | ()
-cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(Single _ _)} {A} {B} (CastA{A = Pi A° B°}{B = Pi A°° B°°}{A' = A'} j x₁ x₂ x₃) (AUSingle unf) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi A° B°}{B = Pi A°° B°°} x₂)
-...  | inj₁ eq = contradiction (≡-trans (sym eq) x₃) λ ()
-...  | inj₂ (fst , snd , thd) rewrite (proj₂ (Single-equiv (≡-trans (sym x₃) thd)))
-     with unf
-...     | ()
-cf-sigma-⇓ {n} {.(Cast _ _ Dyn)} {.(CaseT _ _)} {A} {B} (CastA{A = A₁}{B = Dyn}{A' = A'} j x₃ x₄ x₅) (AUCaseL x x₁ unf) (VCast v x₂)
-  with (cast-result{A' = A'}{A = A₁}{B = Dyn} x₄)
-...  | inj₁ eq = contradiction (≡-trans (sym x₅) eq) λ ()
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₅) λ ()
-cf-sigma-⇓ {n} {.(Cast _ (Pi _ _) (Pi _ _))} {.(CaseT _ _)} {A} {B} (CastA{A = Pi A° B°}{B = Pi A°° B°°}{A' = A'} j x₂ x₃ x₄) (AUCaseL x x₁ unf) (VCastFun v)
-  with (cast-result{A' = A'}{A = Pi A° B°}{B = Pi A°° B°°} x₃)
-...  | inj₁ eq = contradiction (≡-trans (sym x₄) eq) λ ()
-...  | inj₂ (fst , snd , thd) = contradiction (≡-trans (sym thd) x₄) λ ()
-
-cf-sigma-⇓ {n} {e} {.(CaseT (UVal VVar) _)} {_} {.(CaseT (UVal VVar) _)} j (AUCaseX-S {eq = eq} x x₁) v = contradiction eq env-empty-++
-cf-sigma-⇓ {n} {e} {.(CaseT (UCast VVar GLabel) _)} {_} {.(CaseT (UCast VVar GLabel) _)} j (AUCaseXDyn-S {eq = eq} x) v = contradiction eq env-empty-++ 
-
-------------------------------------------------------------------------
--- Progress
-
-data Result {n : ℕ} : Exp {n} → Set where
-  RValue : {e : Exp {n}} → Val {n} e → Result {n} e
-  RBlame :  Result {n} Blame
-
-data Progress-Type {n : ℕ} (A : Ty {n}) {j : [] ⊢ A} : Set where
-  step : {A' : Ty {n}} → A ↠ A' → Progress-Type A
-  result : TyNf A → Progress-Type A
-
-data Progress {n : ℕ} (e : Exp {n}) {T : Ty} {j : [] ⊢ e ▷ T} : Set where
-  step : {e' : Exp{n}} → e ⇨ e' → Progress e
-  result : Result e → Progress e
-
-progress-types : {n : ℕ} {A : Ty {n}} → (j : [] ⊢ A) → Progress-Type A {j}
-progress : {n : ℕ} {e : Exp {n}} {T : Ty} → (j : [] ⊢ e ▷ T) → Progress e {T} {j}
-
-progress-types {n} {.Dyn} (DynF x) = result (NfDyn)
-progress-types {n} {.UnitT} (UnitF x) = result (NfUnit)
-progress-types {n} {.Bot} (BotF x) = result NfBot
-progress-types {n} {.(Label _)} (LabF x) = result (NfLabel)
-progress-types {n} {.(Pi _ _)} (PiF j j₁)
-  with progress-types {n} j
-...  | step x = step (ξ-Pi x)
-...  | result x = result ((NfPi{nfA = x}))
-progress-types {n} {.(Sigma _ _)} (SigmaF j j₁)
-  with progress-types {n} j
-...  | step x = step (ξ-Sigma x)
-...  | result x = result ((NfSigma{nfA = x})) 
-progress-types {n} {.(Single _ _)} (SingleF x x₁ x₂) = step β-Single
-progress-types {n} {(CaseT U f)} (CaseF (SubTypeA j leq))
+progress {n} {.Blame} {.Bot} (BlameA x) = result RBlame
+progress {n} {.UnitE} {.(Single UnitE UnitT)} (UnitAI x) = result (RValue VUnit)
+progress {n} {.(LabI _)} {.(Single (LabI _) (Label ⁅ _ ⁆))} (LabAI x) = result (RValue VLab)
+progress {n} {CaseE e f} {T} (LabAEl{L = L}{L' = L'}{l = l}{U = U} j subs ins j₁)
   with progress j
-...  | step r = step (ξ-Case{U' = valu-closed U r} r)
-...  | result RBlame
-     with U
-...     | UBlame = step Case-Bot
-progress-types {n} {(CaseT U f)} (CaseF (SubTypeA j leq)) | result (RValue v)
-  with cf-label◁ (SubTypeA j leq) v
-...  | fst , snd , thd
-     rewrite snd
-     with U
-...     | UVal (VLab{x = fst}) = step (β-Case{ins = thd})
-
-------------------------------------------------------------------------------------------------
-------------------------------  Cases requiring canonical forms  -------------------------------
-------------------------------------------------------------------------------------------------
-
-progress {n} {CaseE (UVal x₁) f} {T} (LabAEl j x j₁)
-  with cf-label◁ (SubTypeA j (ASubSingle (ASubLabel x) notsingle-label notcase-label)) x₁
-... | (fst , fst₁ , snd) rewrite fst₁
-    with x₁
-...    | (VLab{x = l}) = step (β-LabE snd)
-progress {n} {CaseE (UCast{e = e} x₁ x₂) f} {T} (LabAEl j x j₁)
-  with castView e
-progress {n} {CaseE (UCast{e = Cast e₁ G Dyn}{G = H} (VCast V g) x₂) f} {T} (LabAEl j x j₁) | cast-v
-  with G ≡ᵀ? H
-...  | yes eq rewrite eq = step (ξ-Case {U' = UVal V} (Cast-Collapse{v = V}{g = g}))
-...  | no ¬eq = step (ξ-Case {U' = UBlame} (Cast-Collide{v = V}{g = g}{h = x₂} ¬eq))
-progress {n} {CaseE (UCast {_} (VCastFun v) x₂) f} {T} (LabAEl (CastA{A = Dyn}{B = G}{A' = A'} (CastA{A = Pi nA B}{B = Pi nA' B'}{A' = A''} j x₅ x₆ x₇) x₁ x₃ x₄) x j₁) | cast-v
-  with cast-result{A' = A''}{A = (Pi nA B)}{B = (Pi nA' B')} x₆
-...  | inj₁ eq = contradiction x₃ (isnothing⇒¬isjust (cast-nothing{A = A'}{B = Dyn}{C = G} (notsingle λ e₁ B₁ W x₈ → contradiction (≡-trans (sym (≡-trans (sym x₇) eq)) x₈) (λ ()))
-                                                                                                      λ x₈ → contradiction (≡-trans (sym (≡-trans (sym x₇) eq)) x₈) (λ ())))
-...  | inj₂ (fst , snd , thd)
-     with (sym (≡-trans (sym thd) x₇))
-...     | eq' rewrite eq' = contradiction x₃ (isnothing⇒¬isjust (cast-nothing-single{A = Pi nA' B'}{B = Dyn}{C = G}{e = fst}{V = snd} (λ ()) (λ ())))
-progress {n} {CaseE (UCast {e = e} x₁ x₂) f} {T} (LabAEl j x j₁) | (other-v{neq = neq}) = contradiction j (cast-lemma-1 neq x₁)
-
-progress {n} {App N M} {.([ 0 ↦ M ]ᵀ _)} (PiAE j x (SubTypeA x₁ x₃) x₂)
-  with progress {n} {N} j
-...  | step r = step (ξ-App r)
-...  | result RBlame = step App-Blame
+...  | step x = step (ξ-Case{U = U}{U' = ⇨-ValU-closed U x} x)
 ...  | result (RValue v)
-     with cf-pi-⇓ {n} {N} j x v
-...     | inj₁ (fst , snd) rewrite snd = step (β-App M)
+     with cf-label◁ (SubTypeA j (ASubSingle{V = VLab} (ASubLabel subs) BLabel (notsingle (λ e B → λ ())))) v
+...     | fst , fst₁ , snd rewrite fst₁ = step (β-LabE snd)
+progress {n} {.(CaseE _ _)} {.Bot} (LabAEl-Bot{U = U} j)
+  with progress j
+...  | step x = step (ξ-Case{U = U}{U' = ⇨-ValU-closed U x} x)
+...  | result RBlame = step Case-Blame
+...  | result (RValue x) = contradiction j (cf-not-bot x)
+progress {n} {.(Abs _)} {.(Pi _ _)} (PiAI j) = result (RValue VFun)
+progress {n} {(App e e')} {T} (PiAE j x x₁ x₂)
+  with progress j
+...  | step x₄ = step (ξ-App₁ x₄)
+...  | result RBlame = step (App₁-Blame)
+progress {n} {App e e'} {T} (PiAE j x (SubTypeA x₁ x₅) x₂) | result (RValue V)
+  with progress x₁
+...  | step s = step (ξ-App₂{v = V} s)
+...  | result RBlame = step (App₂-Blame{v = V})
+...  | result (RValue W)
+     with cf-pi-⇓ j x V
+...     | inj₁ (fst , snd) rewrite snd = step (β-App W)
 ...     | inj₂ (fst , snd , thd , fth) rewrite fth
-        with v
-...        | (VCastFun v*) = step (Cast-Func{v = v*})
-progress {n} {(LetP N M)} {T} (SigmaAE j x j₁ x₁)
-  with progress {n} {N} j
+        with V
+...        | VCastFun V' = step (Cast-Func{v = V'}{w = W})
+progress {n} {.(Prod _ _)} {.(Sigma _ _)} (SigmaAI (SubTypeA x x₁) j)
+  with progress x
+...  | step r = step (ξ-Prod r)
+...  | result RBlame = step (Prod-Blame)
+...  | result (RValue V) = step (β-Prod{v = V})
+progress {n} {.(ProdV _ _)} {.(Sigma _ _)} (PairAI{V = V} j j₁)
+  with progress j₁
+...  | step r = step (ξ-ProdV{v = V} r)
+...  | result RBlame = step (ProdV-Blame{v = V})
+...  | result (RValue W) = result (RValue (VProd V W))
+progress {n} {.(LetP _ _)} {T} (SigmaAE j x j₁ x₁)
+  with progress j
 ...  | step r = step (ξ-LetP r)
-...  | result RBlame = step LetP-Blame
-...  | result (RValue v)
-     with cf-sigma-⇓ {n} {N} j x v
-...     | (fst , snd , thd , fth)
-          rewrite fth
-          with v
-...          | VProd v* w = step (β-LetP snd w)
-
-------------------------------------------------------------------------------------------------
--------------------------------------  Trivial cases  ------------------------------------------
-------------------------------------------------------------------------------------------------
-
-progress {n} {Blame} {T} (BlameA x) = result RBlame
-progress {n} {(LetE M N)} {T} (LetA x j j₁)
-  with progress {n} {M} j
+...  | result RBlame = step (LetP-Blame)
+...  | result (RValue V)
+     with cf-sigma-⇓ j x V
+...     | fst , snd , thd rewrite thd
+        with V
+...        | VProd v w = step (β-LetP v w)
+progress {n} {.(LetE _ _)} {T} (LetA x j j₁)
+  with progress j
 ...  | step r = step (ξ-LetE r)
 ...  | result RBlame = step (LetE-Blame)
 ...  | result (RValue V) = step (β-LetE V)
-progress {n} {(ProdV V N)} {.(Sigma _ _)} (PairAI j j₁)
-  with progress {n} {N} j₁
-...  | step r = step (ξ-ProdV r)
-...  | result RBlame = step ProdV-Blame
-...  | result (RValue W) = result (RValue (VProd V W))
-progress {n} {.(Abs _)} {.(Pi _ _)} (PiAI j) = result (RValue VFun)
-progress {n} {.UnitE} {.UnitT} (UnitAI x) = result (RValue VUnit)
-progress {n} {.(LabI _)} {.(Single VLab (Label ⁅ _ ⁆))} (LabAI x) = result (RValue VLab)
-progress {n} {Prod N M} {.(Sigma _ _)} (SigmaAI (SubTypeA x x₁) j)
-  with progress {n} {N} x
-...  | step r = step (ξ-Prod r)
-...  | result RBlame = step Prod-Blame
-...  | result (RValue W) = step (β-Prod{v = W})
 
-------------------------------------------------------------------------------------------------
-------------------------------------  Impossible cases  ----------------------------------------
-------------------------------------------------------------------------------------------------
+progress {n} {.(CaseE (Var (length _)) _)} {.(CaseT (Var (length _)) _)} (LabAEx{eq = eq} x x₁ x₂) = contradiction eq env-empty-++
+progress {n} {.(CaseE (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} (LabAExDyn{eq = eq} x x₁) = contradiction eq env-empty-++
 
-progress {n} {.(CaseE (UVal VVar) _)} {.(CaseT (UVal VVar) _)} (LabAEx {eq = eq} x x₁) = contradiction eq env-empty-++
-progress {n} {.(CaseE (UCast VVar GLabel) _)} {.(CaseT (UCast VVar GLabel) _)} (LabAExDyn {eq = eq} x) = contradiction eq env-empty-++
+progress {n} {.(Cast _ _ _)} {T} (CastA j x) = {!!}
 
+
+{-
 ------------------------------------------------------------------------------------------------
 -----------------------------------------  Cast  -----------------------------------------------
 ------------------------------------------------------------------------------------------------
