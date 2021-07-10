@@ -471,7 +471,8 @@ data _⇨_ {n} where
   Cast-Reduce-L : {e : Exp {n}} {v : Val e} {A A' B : Ty {n}} → A ↠ A' → Cast e A B ⇨ Cast e A' B
   Cast-Reduce-R : {e : Exp {n}} {v : Val e} {A B B' : Ty {n}} → TyNf A → B ↠ B' → Cast e A B ⇨ Cast e A B'
   Cast-Factor-L : {e : Exp {n}} {v : Val e} {nA : Ty {n}} {nfA : TyNf nA} → (neq : nA ≢ Dyn) → nA ≢ (proj₁ (_match{neq = neq} nfA)) → Cast e nA Dyn ⇨ Cast (Cast e nA (proj₁ (_match{neq = neq} nfA))) (proj₁ (_match{neq = neq} nfA)) Dyn
-  Cast-Factor-R : {e : Exp {n}} {v : Val e} {nB : Ty {n}} {nfB : TyNf nB} → (neq : nB ≢ Dyn) → nB ≢ (proj₁ (_match{neq = neq} nfB)) → Cast e Dyn nB ⇨ Cast (Cast e Dyn (proj₁ (_match{neq = neq} nfB))) (proj₁ (_match{neq = neq} nfB)) nB  
+  Cast-Factor-R : {e : Exp {n}} {v : Val e} {nB : Ty {n}} {nfB : TyNf nB} → (neq : nB ≢ Dyn) → nB ≢ (proj₁ (_match{neq = neq} nfB)) → Cast e Dyn nB ⇨ Cast (Cast e Dyn (proj₁ (_match{neq = neq} nfB))) (proj₁ (_match{neq = neq} nfB)) nB
+  Cast-Fail-Dyn : {e : Exp {n}} {v : Val e} {H : Ty {n}} → TyG H → (∀ e' G → e ≢ Cast e' G Dyn) → Cast e Dyn H ⇨ Blame
   App₁-Blame : {e : Exp {n}} → App Blame e ⇨ Blame
   App₂-Blame : {e : Exp {n}} {v : Val e} → App e Blame ⇨ Blame
   LetE-Blame : {e : Exp {n}} → LetE Blame e ⇨ Blame
@@ -479,6 +480,8 @@ data _⇨_ {n} where
   ProdV-Blame : {e : Exp {n}} {v : Val e} → ProdV e Blame ⇨ Blame
   LetP-Blame : {e  : Exp {n}} → LetP Blame e ⇨ Blame
   Cast-Blame : {A B : Ty {n}} → Cast Blame A B ⇨ Blame
+  Cast-Bot-L : {e : Exp {n}} {v : Val e} {B : Ty {n}} → Cast e Bot B ⇨ Blame
+  Cast-Bot-R : {e : Exp {n}} {v : Val e} {A : Ty {n}} → TyNf A → Cast e A Bot ⇨ Blame
   Case-Blame : {s : Subset n} {f : ∀ l → l ∈ s → Exp {n}} → CaseE Blame f ⇨ Blame
 
 infix  2 _⇛_
@@ -537,41 +540,9 @@ begin e⇛e' = e⇛e'
 ⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.Blame} (UValCast x x₁) (Cast-Fail x₂) = UBlame
 ⇨-ValU-closed {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} (UValCast x x₁) (Cast-Collapse{v = v} x₂) = UVal v
 ⇨-ValU-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (UValCast x x₁) (Cast-Collide x₂) = UBlame
+⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.Blame} (UValCast x x₁) (Cast-Fail-Dyn x₂ x₃) = UBlame
 ⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} (UValCast x x₁) (Cast-Reduce-R{v = v}{B' = B'} x₂ x₃) = contradiction x₃ (↠-TyNf-noreduce (TyG⊂TyNf x₁) B')
 ⇨-ValU-closed {n} {.(Cast _ Dyn _)} {_} (UValCast x x₁) (Cast-Factor-R{nfB = nfG} neq x₂) = contradiction (sym (TyG×TyNf⇒match-equiv x₁ nfG)) x₂
-
-{-
-⇨-ValU-closed {n} {.(ProdV _ _)} {.(ProdV _ _)} (UValProd v x) (ξ-ProdV{e₂' = e₂} r) = contradiction r (⇨-Val-noreduce x e₂)
-⇨-ValU-closed {n} {.(Prod _ _)} {.(Prod _ _)} (UValProd' valu valu₁) (ξ-Prod r) = UValProd' (⇨-ValU-closed valu r) valu₁
-⇨-ValU-closed {n} {.(Prod _ _)} {.(ProdV _ ↑ -[1+ 0 ] , 0 [ [ 0 ↦ ↑ + 1 , 0 [ _ ] ] _ ])} (UValProd' valu valu₁) (β-Prod{v = v}) = UValProd v {!!}
-⇨-ValU-closed {n} {.(Prod Blame _)} {.Blame} (UValProd' valu valu₁) Prod-Blame = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast valu) (ξ-Cast r) = {!!}
-⇨-ValU-closed {n} {.(Cast e' Dyn Dyn)} {e'} (UCast valu) Cast-Dyn = {!!}
-⇨-ValU-closed {n} {.(Cast e' _ _)} {e'} (UCast valu) (Cast-Sub x) = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.Blame} (UCast valu) (Cast-Fail x) = {!!}
-⇨-ValU-closed {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} (UCast valu) (Cast-Collapse x) = {!!}
-⇨-ValU-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (UCast valu) (Cast-Collide x) = {!!}
-⇨-ValU-closed {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} (UCast valu) Cast-Pair = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast valu) (Cast-Reduce-L x) = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast valu) (Cast-Reduce-R x x₁) = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (UCast valu) (Cast-Factor-L neq x) = {!!}
-⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (UCast valu) (Cast-Factor-R neq x) = {!!}
-⇨-ValU-closed {n} {.(Cast Blame _ _)} {.Blame} (UCast valu) Cast-Blame = {!!}
--}
-{-
-⇨-ValU-closed {n} {.(ProdV _ _)} {.(ProdV _ _)} (UValProd v x) (ξ-ProdV{e₂' = e₂'} r) = {!!}
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast x) (ξ-Cast{e₂ = e₂} r) = {!!}
-⇨-ValU-closed {n} {.(Cast e' Dyn Dyn)} {e'} (UCast x) Cast-Dyn = x
-⇨-ValU-closed {n} {.(Cast e' _ _)} {e'} (UCast x) (Cast-Sub x₁) = x
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.Blame} (UCast x) (Cast-Fail x₁) = UBlame
-⇨-ValU-closed {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} (UCast x) (Cast-Collapse{v = v} x₁) = {!!}
-⇨-ValU-closed {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (UCast x) (Cast-Collide x₁) = UBlame
-⇨-ValU-closed {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} (UCast x) (Cast-Pair{v = v}{w = w}) = {!!} -- UValProd' (UCast v) (UCast w)
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast x) (Cast-Reduce-L x₁) = UCast x
-⇨-ValU-closed {n} {.(Cast _ _ _)} {.(Cast _ _ _)} (UCast x) (Cast-Reduce-R x₁ x₂) = UCast x
-⇨-ValU-closed {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (UCast x) (Cast-Factor-L neq neq') = UCast {!!}
-⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (UCast x) (Cast-Factor-R neq neq') = UCast {!!}
--}
 
 ------------------------------------------------------------------------
 -- Evaluation
@@ -729,12 +700,12 @@ evaluate-step-expr (Cast e A B)
      with evaluate-step-type A
 ...     | step st = step (Cast-Reduce-L{v = v} st)
 ...     | stuck = stuck
-...     | result RBot = stuck   -- (?)
+...     | result RBot = step (Cast-Bot-L{v = v})
 ...     | result (RNf nfA)
         with evaluate-step-type B
 ...        | step st = step (Cast-Reduce-R{v = v} nfA st)
 ...        | stuck = stuck
-...        | result RBot = stuck   -- (?)
+...        | result RBot = step (Cast-Bot-R{v = v} nfA)
 ...        | result (RNf nfB)
            with A ≡ᵀ? Dyn | B ≡ᵀ? Dyn
 ...           | yes eq | yes eq₁ rewrite eq | eq₁ = step (Cast-Dyn{v = v})
@@ -745,11 +716,11 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁
   with TyG? B
 ...  | no ¬tygb rewrite eq = step (Cast-Factor-R{v = v}{nfB = nfB} ¬eq₁ (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tygb nfB)))
-evaluate-step-expr (Cast .UnitE Dyn B) | result (RValue VUnit) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck   -- (?) (also the following cases) matching undefined for *
-evaluate-step-expr (Cast .(LabI _) Dyn B) | result (RValue VLab) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
-evaluate-step-expr (Cast .(Abs _) Dyn B) | result (RValue VFun) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
-evaluate-step-expr (Cast .(ProdV _ _) Dyn B) | result (RValue (VProd v v₁)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
-evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) Dyn B) | result (RValue (VCastFun v)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
+evaluate-step-expr (Cast .UnitE Dyn B) | result (RValue VUnit) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = step (Cast-Fail-Dyn{v = VUnit} tygb (λ e G → λ()))
+evaluate-step-expr (Cast .(LabI _) Dyn B) | result (RValue VLab) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = step (Cast-Fail-Dyn{v = VLab} tygb (λ e G → λ()))
+evaluate-step-expr (Cast .(Abs _) Dyn B) | result (RValue VFun) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = step (Cast-Fail-Dyn{v = VFun} tygb (λ e G → λ()))
+evaluate-step-expr (Cast .(ProdV _ _) Dyn B) | result (RValue (VProd v v₁)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = step (Cast-Fail-Dyn{v = VProd v v₁} tygb (λ e G → λ()))
+evaluate-step-expr (Cast (Cast e (Pi A B₁) (Pi A' B')) Dyn B) | result (RValue (VCastFun v)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = step (Cast-Fail-Dyn{v = (VCastFun v)} tygb λ e G → λ ())
 evaluate-step-expr (Cast (Cast e G Dyn) Dyn B) | result (RValue (VCast v tygg)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb
   with []⊢ tygg ≤ᵀ? tygb
 ...  | yes leq = step (Cast-Collapse{v = v}{tygG = tygg}{tygH = tygb} leq)
@@ -999,4 +970,3 @@ blame = refl
 
 _ : (evaluate-full (gas 100) (CaseE{s = (inside ∷ (inside ∷ []))} (Cast (Cast (LabI zero) (Label (inside ∷ (outside ∷ []))) Dyn) Dyn (Label (inside ∷ (inside ∷ [])))) (λ l → λ ins → UnitE))) ≡ (UnitE , (result (RValue VUnit)))
 _ = refl
-

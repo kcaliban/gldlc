@@ -111,6 +111,13 @@ cast-invert-bot {n} {A} {B} {CaseT x f} neq eq = contradiction eq neq
 cast-invert-bot {n} {A} {B} {Bot} neq eq = contradiction eq neq
 cast-invert-bot {n} {A} {B} {Dyn} neq eq = contradiction eq neq
 
+special-casts : {n : ℕ} {e : Exp {n}} {A G : Ty {n}} → (∀ e' A B → ¬ (e ≡ Cast e' A B)) → Val e → ([] ⊢ Cast e Dyn G ▷ A) → A ≡ G
+special-casts {n} {(Cast e A' B')} {A} {G} ncast W (CastA (CastA j x₁) x) = contradiction refl (ncast e A' B')
+special-casts {n} {.UnitE} {A} {G} ncast W (CastA (UnitAI x₁) x) = x
+special-casts {n} {.(LabI _)} {A} {G} ncast W (CastA (LabAI x₁) x) = x
+special-casts {n} {.(Abs _)} {A} {G} ncast W (CastA (PiAI j) x) = x
+special-casts {n} {.(ProdV _ _)} {A} {G} ncast W (CastA (PairAI j j₁) x) = x
+
 no-reduce-nftype-step : {n : ℕ} {T : Ty {n}} → (nfT : TyNf T) → (evaluate-step-type T) ≡ (result (RNf nfT))
 no-reduce-nftype-step {n} {.Dyn} NfDyn = refl
 no-reduce-nftype-step {n} {.UnitT} NfUnit = refl
@@ -545,7 +552,42 @@ progress {n} {.(LetE _ _)} {T} (LetA x j j₁)
 progress {n} {.(CaseE (Var (length _)) _)} {.(CaseT (Var (length _)) _)} (LabAEx{eq = eq} x x₁ x₂) = contradiction eq env-empty-++
 progress {n} {.(CaseE (Cast (Var (length _)) _ (Label _)) _)} {.(CaseT (Cast (Var (length _)) _ (Label _)) _)} (LabAExDyn{eq = eq} x x₁) = contradiction eq env-empty-++
 
-progress {n} {.(Cast _ _ _)} {T} (CastA j x) = {!!}
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x)
+  with progress j
+...  | step st = step (ξ-Cast st)
+...  | result RBlame = step Cast-Blame
+...  | result (RValue v)
+     with progress-types ok
+...     | step st = step (Cast-Reduce-L{v = v} st)
+...     | result RBot = step (Cast-Bot-L{v = v})
+...     | result (RNf nfA)
+        with progress-types ok'
+...        | step st = step (Cast-Reduce-R{v = v} nfA st)
+...        | result RBot = step (Cast-Bot-R{v = v} nfA)
+...        | result (RNf nfB)
+           with A ≡ᵀ? Dyn | B ≡ᵀ? Dyn
+...           | yes eq | yes eq' rewrite eq | eq' = step (Cast-Dyn{v = v})
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | yes eq' rewrite eq'
+  with TyG? A
+...  | yes tyga = result (RValue (VCast v tyga))
+...  | no ¬tyga = step (Cast-Factor-L{v = v}{nfA = nfA} ¬eq (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tyga nfA)))
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' rewrite eq
+  with TyG? B
+...  | no ¬tygb = step (Cast-Factor-R{v = v}{nfB = nfB} ¬eq' (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tygb nfB)))
+progress {n} {Cast .UnitE A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue VUnit) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb = step (Cast-Fail-Dyn{v = VUnit} tygb (λ e G → λ()))
+progress {n} {Cast .(LabI _) A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue VLab) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb = step (Cast-Fail-Dyn{v = VLab} tygb (λ e G → λ()))
+progress {n} {Cast .(Abs _) A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue VFun) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb = step (Cast-Fail-Dyn{v = VFun} tygb (λ e G → λ()))
+progress {n} {Cast .(ProdV _ _) A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue (VProd v v₁)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb = step (Cast-Fail-Dyn{v = VProd v v₁} tygb (λ e G → λ()))
+progress {n} {Cast .(Cast _ (Pi _ _) (Pi _ _)) A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue (VCastFun v)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb = step (Cast-Fail-Dyn{v = (VCastFun v)} tygb λ e G → λ ())
+progress {n} {Cast .(Cast _ _ Dyn) A B} {T} (CastA {ok = ok} {ok' = ok'} j x) | result (RValue (VCast v tygg)) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' | yes tygb
+  with []⊢ tygg ≤ᵀ? tygb
+...  | yes leq = step (Cast-Collapse{v = v}{tygG = tygg}{tygH = tygb} leq)
+...  | no ¬leq = step (Cast-Collide{v = v}{tygG = tygg}{tygH = tygb} ¬leq)
+
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq'
+  with TyG? A | TyG? B
+progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq' | yes tygA | yes tygB = ?
+
 
 
 {-
