@@ -463,6 +463,8 @@ data _⇨_ {n} where
              → [] ⊢ G ≤ᵀ H → Cast e G H ⇨ e
   Cast-Fail : {e : Exp {n}} {v : Val e} {nA nB : Ty {n}} {tynfA : TyNf nA} {tynfB : TyNf nB} {neq : nA ≢ Dyn × nB ≢ Dyn}
               → ¬ ([] ⊢ proj₁ (_match{neq = proj₁ neq} tynfA) ≤ᵀ proj₁ (_match{neq = proj₂ neq} tynfB)) → Cast e nA nB ⇨ Blame
+  Cast-Fail-Dyn : {e : Exp {n}} {v : Val e} {H : Ty {n}} → TyG H → (∀ e' G → e ≢ Cast e' G Dyn) → Cast e Dyn H ⇨ Blame
+  Cast-Fail-Prod : {e : Exp {n}} {v : Val e} {A A' B B' : Ty {n}} → (∀ e' e'' → e ≢ ProdV e' e'') → Cast e (Sigma A B) (Sigma A' B') ⇨ Blame
   Cast-Collapse : {e : Exp {n}} {v : Val e} {G H : Ty {n}} {tygG : TyG G} {tygH : TyG H} → [] ⊢ G ≤ᵀ H → Cast (Cast e G Dyn) Dyn H ⇨ e
   Cast-Collide : {e : Exp {n}} {v : Val e} {G H : Ty {n}} {tygG : TyG G} {tygH : TyG H} → ¬ ([] ⊢ G ≤ᵀ H) → Cast (Cast e G Dyn) Dyn H ⇨ Blame
   Cast-Pair : {e e' : Exp {n}} {v : Val e} {w : Val e'} {A A' B B' : Ty {n}}
@@ -472,7 +474,6 @@ data _⇨_ {n} where
   Cast-Reduce-R : {e : Exp {n}} {v : Val e} {A B B' : Ty {n}} → TyNf A → B ↠ B' → Cast e A B ⇨ Cast e A B'
   Cast-Factor-L : {e : Exp {n}} {v : Val e} {nA : Ty {n}} {nfA : TyNf nA} → (neq : nA ≢ Dyn) → nA ≢ (proj₁ (_match{neq = neq} nfA)) → Cast e nA Dyn ⇨ Cast (Cast e nA (proj₁ (_match{neq = neq} nfA))) (proj₁ (_match{neq = neq} nfA)) Dyn
   Cast-Factor-R : {e : Exp {n}} {v : Val e} {nB : Ty {n}} {nfB : TyNf nB} → (neq : nB ≢ Dyn) → nB ≢ (proj₁ (_match{neq = neq} nfB)) → Cast e Dyn nB ⇨ Cast (Cast e Dyn (proj₁ (_match{neq = neq} nfB))) (proj₁ (_match{neq = neq} nfB)) nB
-  Cast-Fail-Dyn : {e : Exp {n}} {v : Val e} {H : Ty {n}} → TyG H → (∀ e' G → e ≢ Cast e' G Dyn) → Cast e Dyn H ⇨ Blame
   App₁-Blame : {e : Exp {n}} → App Blame e ⇨ Blame
   App₂-Blame : {e : Exp {n}} {v : Val e} → App e Blame ⇨ Blame
   LetE-Blame : {e : Exp {n}} → LetE Blame e ⇨ Blame
@@ -755,12 +756,12 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
   with A ≡ᵀ? Sigma Dyn Dyn | B ≡ᵀ? Sigma Dyn Dyn
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁' | yes eq'' | yes eq₁'' rewrite eq'' | eq₁''
   with v
-...  | VUnit = stuck
-...  | VLab = stuck
-...  | VFun = stuck
+...  | VUnit = step ((Cast-Fail-Prod{v = VUnit} (λ e e'' → λ ())))
+...  | VLab = step ((Cast-Fail-Prod{v = VLab} (λ e e'' → λ ())))
+...  | VFun = step (Cast-Fail-Prod{v = VFun} (λ e e'' → λ ()))
+...  | VCast w x = step (Cast-Fail-Prod{v = VCast w x} (λ e e'' → λ ()))
+...  | VCastFun w = step (Cast-Fail-Prod{v = VCastFun w} (λ e e'' → λ ()))
 ...  | VProd w w₁ = step (Cast-Pair{v = w}{w = w₁})
-...  | VCast w x = stuck
-...  | VCastFun w = stuck
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁' | yes eq'' | no ¬eq₁'' rewrite eq''
   with tygB
 ...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfUnit}{neq = (λ ()) , (λ ())} λ ())
@@ -827,11 +828,11 @@ evaluate-step-expr (Cast e (Single e' G) (Sigma A B)) | result (RValue v) | resu
   = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfSigma}{neq = ¬eq , ¬eq₁} ϱ)
   where ϱ : ¬ ([] ⊢ Single e' UnitT ≤ᵀ Sigma Dyn Dyn)
         ϱ (ASubSingle constr () x₁)  
-evaluate-step-expr (Cast .UnitE (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VUnit | GSigma = stuck
-evaluate-step-expr (Cast .(LabI _) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VLab | GSigma = stuck
-evaluate-step-expr (Cast .(Abs _) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VFun | GSigma = stuck
-evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VCast w x₁ | GSigma = stuck
-evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VCastFun w | GSigma = stuck
+evaluate-step-expr (Cast .UnitE (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VUnit | GSigma = step ((Cast-Fail-Prod{v = VUnit} (λ e e'' → λ ())))
+evaluate-step-expr (Cast .(LabI _) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VLab | GSigma = step ((Cast-Fail-Prod{v = VLab} (λ e e'' → λ ())))
+evaluate-step-expr (Cast .(Abs _) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VFun | GSigma = step ((Cast-Fail-Prod{v = VFun} (λ e e'' → λ ())))
+evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VCast w x₁ | GSigma = step ((Cast-Fail-Prod{v = VCast w x₁} (λ e e'' → λ ())))
+evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VCastFun w | GSigma = step ((Cast-Fail-Prod{v = VCastFun w} (λ e e'' → λ ())))
 evaluate-step-expr (Cast .(ProdV _ _) (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VProd w w₁ | GSigma
  = step (Cast-Pair{v = w}{w = w₁})
 
@@ -867,11 +868,11 @@ evaluate-step-expr (Cast e (Sigma A B) (Single e' G)) | result (RValue v) | resu
  = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BLabel{s = s}}}{neq = ¬eq , ¬eq₁} λ ())
 evaluate-step-expr (Cast e (Sigma A B) (Single e' G)) | result (RValue v) | result (RNf NfSigma) | result (RNf (NfSingle{V = V}{tybB = tybB})) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSingleUnit
  = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BUnit}}{neq = ¬eq , ¬eq₁} λ ())
-evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
-evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
-evaluate-step-expr (Cast .(Abs _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VFun) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
-evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue (VCast v x₁)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
-evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue (VCastFun v)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
+evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Fail-Prod{v = VUnit} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Fail-Prod{v = VLab} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Abs _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VFun) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Fail-Prod{v = VFun} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue (VCast v x₁)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Fail-Prod{v = VCast v x₁} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue (VCastFun v)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Fail-Prod{v = VCastFun v} (λ e e'' → λ ()))
 evaluate-step-expr (Cast .(ProdV _ _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue (VProd v v₁)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = step (Cast-Pair{v = v}{w = v₁})
 
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB
@@ -888,11 +889,11 @@ evaluate-step-expr (Cast e (Sigma A B) (Pi A' B')) | result (RValue v) | result 
   = step (Cast-Fail {v = v} {tynfA = NfSigma} {tynfB = NfPi}
             {neq = ¬eq , ¬eq₁} (λ ()))
 evaluate-step-expr (Cast e (Pi A B) (Pi A' B')) | result (RValue v) | result (RNf NfPi) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Pi x | Pi x₁ = result (RValue (VCastFun v))
-evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma A' B')) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
-evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma A' B')) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
-evaluate-step-expr (Cast .(Abs _) (Sigma A B) (Sigma A' B')) | result (RValue VFun) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
-evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma A B) (Sigma A' B')) | result (RValue (VCast v x₂)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
-evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma A B) (Sigma A' B')) | result (RValue (VCastFun v)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
+evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma A' B')) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Fail-Prod{v = VUnit} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma A' B')) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Fail-Prod{v = VLab} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Abs _) (Sigma A B) (Sigma A' B')) | result (RValue VFun) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Fail-Prod{v = VFun} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Cast _ _ Dyn) (Sigma A B) (Sigma A' B')) | result (RValue (VCast v x₂)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Fail-Prod{v = VCast v x₂} (λ e e'' → λ ()))
+evaluate-step-expr (Cast .(Cast _ (Pi _ _) (Pi _ _)) (Sigma A B) (Sigma A' B')) | result (RValue (VCastFun v)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Fail-Prod{v = VCastFun v} (λ e e'' → λ ()))
 evaluate-step-expr (Cast .(ProdV _ _) (Sigma A B) (Sigma A' B')) | result (RValue (VProd v v₁)) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = step (Cast-Pair{v = v}{w = v₁})
 
 record Gas : Set where
