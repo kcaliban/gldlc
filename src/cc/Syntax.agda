@@ -253,19 +253,6 @@ ValU-uniqueness {n} {.∞} {.(Cast _ Dyn Dyn)} (UValCast x x₁) (UVal (VCast x�
 ValU-uniqueness {n} {.∞} {.(Cast _ Dyn _)} (UValCast x x₁) (UValCast x₂ x₃)
   rewrite (Val-uniqueness x x₂) | (TyG-uniqueness x₁ x₃) = refl
 ValU-uniqueness {n} {.∞} {.Blame} UBlame UBlame = refl
-{-
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Var _)} UVar UVar = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Prod _ _)} (UValProd' v v₁) (UValProd' v' v₁')
- rewrite (ValU-uniqueness v v') | (ValU-uniqueness v₁ v₁') = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.UnitE} UValUnit UValUnit = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(LabI _)} UValLab UValLab = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Abs _)} UValFun UValFun = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(ProdV _ _)} (UValProd v v₁) (UValProd v' v₁')
-  rewrite (Val-uniqueness v v') | (Val-uniqueness v₁ v₁') = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.(Cast _ _ _)} (UCast v) (UCast v')
-  rewrite (ValU-uniqueness v v') = refl
-ValU-uniqueness {n} {.(↑ˡ ∞)} {.Blame} UBlame UBlame = refl
--}
 
 Val-ProdV-inv : {n : ℕ} {e e' : Exp {n}} → Val (ProdV e e') → Val e'
 Val-ProdV-inv {n} {e} {e'} (VProd v val) = val
