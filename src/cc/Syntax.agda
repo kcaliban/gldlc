@@ -126,9 +126,9 @@ data _∈`_ {n : ℕ} : ℕ → Exp {n} → Set where
 
 -- variable in type
 data _∈`ᵀ_ {n} where
-  in-single : {x : ℕ} {e : Exp {n}} {A : Ty {n}} → x ∈` e → x ∈`ᵀ Single e A 
-  in-pi : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Pi A B
-  in-pigma : {x : ℕ} {A B : Ty {n}} → n ∈`ᵀ A ⊎ (ℕ.suc n) ∈`ᵀ B → n ∈`ᵀ Sigma A B
+  in-single : {x : ℕ} {e : Exp {n}} {A : Ty {n}} → x ∈` e ⊎ x ∈`ᵀ A → x ∈`ᵀ Single e A 
+  in-pi : {x : ℕ} {A B : Ty {n}} → x ∈`ᵀ A ⊎ (ℕ.suc x) ∈`ᵀ B → x ∈`ᵀ Pi A B
+  in-sigma : {x : ℕ} {A B : Ty {n}} → x ∈`ᵀ A ⊎ (ℕ.suc x) ∈`ᵀ B → x ∈`ᵀ Sigma A B
   in-case : {x : ℕ} {s : Subset n} {f : ∀ l → l ∈ s → Ty {n}} {e : Exp {n}} → (∃₂ λ l i → x ∈`ᵀ (f l i)) ⊎ x ∈` e → x ∈`ᵀ CaseT e f
 
 -- generalized values incorporate values
@@ -283,6 +283,14 @@ TyG-notDyn {n} {.(Pi Dyn Dyn)} GPi = λ ()
 TyG-notDyn {n} {.(Sigma Dyn Dyn)} GSigma = λ ()
 TyG-notDyn {n} {.(Single _ (Label _))} GSingleLabel = λ ()
 TyG-notDyn {n} {.(Single _ UnitT)} GSingleUnit = λ ()
+
+TyG-notBot : {n : ℕ} {A : Ty {n}} → TyG A → A ≢ Bot
+TyG-notBot {n} {.UnitT} GUnit = λ ()
+TyG-notBot {n} {.(Label _)} GLabel = λ ()
+TyG-notBot {n} {.(Pi Dyn Dyn)} GPi = λ ()
+TyG-notBot {n} {.(Sigma Dyn Dyn)} GSigma = λ ()
+TyG-notBot {n} {.(Single _ (Label _))} GSingleLabel = λ ()
+TyG-notBot {n} {.(Single _ UnitT)} GSingleUnit = λ ()
 
 ------------------------------------------------------------------------
 -- decidable

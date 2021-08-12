@@ -2,6 +2,7 @@
 -- Shifting and Substitution
 ------------------------------------------------------------------------
 
+{-# OPTIONS --sized-types #-}
 module Substitution where
 
 open import Data.Nat renaming (_≟_ to _≟ᴺ_)

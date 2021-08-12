@@ -4,7 +4,8 @@
 
 module Aux where
 
-open import Data.Nat
+open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
+open import Data.Nat.Properties renaming (_<?_ to _<ᴺ?_)
 open import Level renaming (zero to lzero)
 open import Data.Fin
 open import Data.Fin.Properties
@@ -52,6 +53,13 @@ isnothing⇒¬isjust {A} {.nothing} nothing = λ ()
 ¬isjust⇒isnothing : {A : Set} {a : Maybe A} → ¬ (Is-just a) → Is-nothing a
 ¬isjust⇒isnothing {A} {nothing} ju = nothing
 ¬isjust⇒isnothing {A} {just x} ju = contradiction (just Data.Unit.tt) ju
+
+<ᴺ-pred : {n m : ℕ} → ℕ.suc n <ᴺ ℕ.suc m → n <ᴺ m
+<ᴺ-pred {n} {m} (s≤s leq) = leq
+
+n≤ᴺsucn : {n : ℕ} → n ≤ᴺ ℕ.suc n
+n≤ᴺsucn {zero} = z≤n
+n≤ᴺsucn {ℕ.suc n} = s≤s n≤ᴺsucn
 
 ------------------------------------------------------------------------
 -- Various subset properties
@@ -101,7 +109,7 @@ f-manipulate {n} {A} {s} f l
 
 f-equal : {n : ℕ} {A : Set} {dec : (a a' : A) → Dec (a ≡ a')} → (f f' : (l : Fin n) → A) → Dec (f ≡ f')
 f-equal {n} {A} {dec} f f'
-  with all?{n} λ x → dec (f x) (f' x)
+  with all?{n} (λ x → dec (f x) (f' x))
 ...  | yes p = yes (ext p)
 ...  | no ¬p = no λ x → contradiction (cong-app x) ¬p
 
