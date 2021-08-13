@@ -220,6 +220,10 @@ data notSingle×Base {n : ℕ} : Ty {n} → Set where
 ------------------------------------------------------------------------
 -- properties, inverse lemmas
 
+notSingle×Base-uniqueness : {n : ℕ} {A : Ty {n}} → (x x' : notSingle×Base A) → x ≡ x'
+notSingle×Base-uniqueness {n} {.UnitT} BUnit BUnit = refl
+notSingle×Base-uniqueness {n} {.(Label _)} BLabel BLabel = refl
+
 Val-uniqueness : {n : ℕ} {i : Size} {e : Exp {n} {i}} → (x x' : Val {n} {i} e) → x ≡ x'
 TyG-uniqueness : {n : ℕ} {G : Ty {n}} → (x x' : TyG G) → x ≡ x'
 

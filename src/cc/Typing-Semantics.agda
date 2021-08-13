@@ -3,9 +3,6 @@
 ------------------------------------------------------------------------
 
 {-# OPTIONS --sized-types #-}
-{-# OPTIONS --allow-unsolved-metas #-}   --- REEMOOOOOVEEEEEEEE
----- !!!!!!
----- !!!!!!!!!!!!
 module Typing-Semantics where
 
 open import Data.Nat renaming (_+_ to _+ᴺ_ ; _≤_ to _≤ᴺ_ ; _≥_ to _≥ᴺ_ ; _<_ to _<ᴺ_ ; _>_ to _>ᴺ_ ; _≟_ to _≟ᴺ_)
@@ -81,7 +78,6 @@ data _⊢_⇓_ {n : ℕ} : TEnv {n} → Ty {n} → Ty {n} → Set
 -- precise cast function
 cast : {n : ℕ} → Ty {n} → Ty {n} → Ty {n} → Maybe (Ty {n})
 
-cast {n} A B C = {!!}
 -- Implementations
 
 data ⊢_ok {n} where
@@ -269,10 +265,28 @@ data TyNf-lim {n} : Ty {n} → Set where
   NfSingle : {B : Ty {n}} {e : Exp {n}} {V : Val e} {tybB : notSingle×Base B} → TyNf-lim (Single e B)
 
 TyNf-lim⊂TyNf : {n : ℕ} {A : Ty {n}} → TyNf-lim A → TyNf A
-TyNf-lim⊂TyNf {n} {A} tynflim = {!!}
+TyNf-lim⊂TyNf {n} {.UnitT} NfUnit = NfUnit
+TyNf-lim⊂TyNf {n} {.(Label _)} NfLabel = NfLabel
+TyNf-lim⊂TyNf {n} {.(Pi _ _)} NfPi = NfPi
+TyNf-lim⊂TyNf {n} {.(Sigma _ _)} NfSigma = NfSigma
+TyNf-lim⊂TyNf {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) = NfSingle{V = v}{tybB = tybB}
 
 TyNf-lim-uniqueness : {n : ℕ} {A : Ty {n}} → (a b : TyNf-lim A) → a ≡ b
-TyNf-lim-uniqueness {n} {A} a b = {!!}
+TyNf-lim-uniqueness {n} {.UnitT} NfUnit NfUnit = refl
+TyNf-lim-uniqueness {n} {.(Label _)} NfLabel NfLabel = refl
+TyNf-lim-uniqueness {n} {.(Pi _ _)} NfPi NfPi = refl
+TyNf-lim-uniqueness {n} {.(Sigma _ _)} NfSigma NfSigma = refl
+TyNf-lim-uniqueness {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) (NfSingle{V = v'}{tybB = tybB'}) rewrite (Val-uniqueness v v') | (notSingle×Base-uniqueness tybB tybB') = refl
+
+TyNf×¬DynBotTop→TyNf-lim : {n : ℕ} {A : Ty {n}} → TyNf A → A ≢ Dyn × A ≢ Bot × A ≢ Top → TyNf-lim A
+TyNf×¬DynBotTop→TyNf-lim {n} {.Dyn} NfDyn (neq , neq' , neq'') = contradiction refl neq
+TyNf×¬DynBotTop→TyNf-lim {n} {.Bot} NfBot (neq , neq' , neq'') = contradiction refl neq'
+TyNf×¬DynBotTop→TyNf-lim {n} {.Top} NfTop (neq , neq' , neq'') = contradiction refl neq''
+TyNf×¬DynBotTop→TyNf-lim {n} {.UnitT} NfUnit (neq , neq' , neq'') = NfUnit
+TyNf×¬DynBotTop→TyNf-lim {n} {.(Label _)} NfLabel (neq , neq' , neq'') = NfLabel
+TyNf×¬DynBotTop→TyNf-lim {n} {.(Pi _ _)} NfPi (neq , neq' , neq'') = NfPi
+TyNf×¬DynBotTop→TyNf-lim {n} {.(Sigma _ _)} NfSigma (neq , neq' , neq'') = NfSigma
+TyNf×¬DynBotTop→TyNf-lim {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) (neq , neq' , neq'') = (NfSingle{V = v}{tybB = tybB})
 
 TyG⊂TyNf : {n : ℕ} {A : Ty {n}} → TyG A → TyNf A
 TyG⊂TyNf {n} {.UnitT} GUnit = NfUnit
@@ -615,328 +629,7 @@ begin e⇛e' = e⇛e'
 ⇨-ValU-closed {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} (UValCast x x₁) (Cast-Reduce-R{v = v}{B' = B'} x₂ x₃) = contradiction x₃ (↠-TyNf-noreduce (TyG⊂TyNf x₁) B')
 ⇨-ValU-closed {n} {.(Cast _ Dyn _)} {_} (UValCast x x₁) (Cast-Factor-R{nfB = nfG} neq) = contradiction (sym (TyG×TyNf-lim⇒match-equiv x₁ nfG)) neq
 
-{-
-⇨-determinism : {n : ℕ} {e e' e'' : Exp {n}} → e ⇨ e' → e ⇨ e'' → e' ≡ e''
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₁ r) (ξ-App₁ r') = cong₂ App (⇨-determinism r r') refl
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₁{e₁' = e₁'} r) (ξ-App₂{v = v} r') = contradiction r (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {(App (Cast e (Pi A B) (Pi A' B')) e')} {.(App _ _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} (ξ-App₁{e₁' = e₁'} r) (Cast-Func{v = v}) = contradiction r (⇨-Val-noreduce (VCastFun v) e₁')
-⇨-determinism {n} {.(App _ Blame)} {.(App _ Blame)} {.Blame} (ξ-App₁{e₁' = e₁'} r) (App₂-Blame{v = v}) = contradiction r (⇨-Val-noreduce v e₁')
 
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₂{v = v} r) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₂ r) (ξ-App₂ r') = cong₂ App refl (⇨-determinism r r')
-⇨-determinism {n} {.(App (Abs _) _)} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-App₂{e₂' = e₂'} r) (β-App v) = contradiction r (⇨-Val-noreduce v e₂')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} (ξ-App₂{e₂' = e₂'} r) (Cast-Func{w = w}) = contradiction r (⇨-Val-noreduce w e₂')
-
-⇨-determinism {n} {.(LetE _ _)} {.(LetE _ _)} {.(LetE _ _)} (ξ-LetE r) (ξ-LetE r') = cong₂ LetE (⇨-determinism r r') refl
-⇨-determinism {n} {.(LetE _ _)} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-LetE{e₁' = e₁'} r) (β-LetE v) = contradiction r (⇨-Val-noreduce v e₁')
-
-⇨-determinism {n} {.(Prod _ _)} {.(Prod _ _)} {.(Prod _ _)} (ξ-Prod r) (ξ-Prod r') = cong₂ Prod (⇨-determinism r r') refl
-⇨-determinism {n} {.(Prod _ _)} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-Prod{e₁' = e₁'} r) (β-Prod{v = v}) = contradiction r (⇨-Val-noreduce v e₁')
-
-⇨-determinism {n} {.(ProdV _ _)} {.(ProdV _ _)} {.(ProdV _ _)} (ξ-ProdV r) (ξ-ProdV r') = cong₂ ProdV refl (⇨-determinism r r')
-
-⇨-determinism {n} {.(LetP _ _)} {.(LetP _ _)} {.(LetP _ _)} (ξ-LetP r) (ξ-LetP r') = cong₂ LetP (⇨-determinism r r') refl
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(LetP _ _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} (ξ-LetP{e₁' = e₁'} r) (β-LetP v v') = contradiction r (⇨-Val-noreduce (VProd v v') e₁')
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast r) (ξ-Cast r') = cong₃ Cast (⇨-determinism r r') refl refl
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast _ Dyn Dyn)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Dyn{v = v}) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast _ _ _)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Sub{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Fail{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast _ Dyn _)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Collapse{v = v}{tygG = tygG} x) = contradiction r (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast _ Dyn _)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Collide{v = v}{tygG = tygG} x) = contradiction r (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Cast _ (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} (ξ-Cast{e₂ = e₂} r) (Cast-Pair{v = v}{w = w}) = contradiction r (⇨-Val-noreduce (VProd v w) e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast{e₂ = e₂} r) (Cast-Reduce-L{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast{e₂ = e₂} r) (Cast-Reduce-R{v = v} x x₁) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-L{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-R{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Bot-R{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-
-⇨-determinism {n} {.(CaseE _ _)} {.(CaseE _ _)} {.(CaseE _ _)} (ξ-Case r) (ξ-Case r') = cong₂ CaseE (⇨-determinism r r') refl
-
-⇨-determinism {n} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(App (Abs _) _)} (β-App v) (ξ-App₂{e₂' = e₂'} r') = contradiction r' (⇨-Val-noreduce v e₂')
-⇨-determinism {n} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (β-App v) (β-App v₁) = refl
-
-⇨-determinism {n} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(Prod _ _)} (β-Prod{v = v}) (ξ-Prod{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} β-Prod β-Prod = refl
-
-⇨-determinism {n} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(LetE _ _)} (β-LetE v) (ξ-LetE{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (β-LetE v) (β-LetE v₁) = refl
-
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} {.(LetP _ _)} (β-LetP v v') (ξ-LetP{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce (VProd v v') e₁')
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} (β-LetP v v') (β-LetP v₁ v'') = refl
-
-⇨-determinism {n} {.(CaseE (LabI _) _)} {.(_ _ ins)} {.(_ _ ins₁)} (β-LabE ins) (β-LabE ins₁) rewrite (ins-refl ins ins₁) = refl
-
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast _ Dyn Dyn)} (Cast-Dyn{v = v}) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.e'} Cast-Dyn Cast-Dyn = refl
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.Blame} Cast-Dyn (Cast-Fail{tynfA = ()} x)
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast (Cast e' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} Cast-Dyn (Cast-Factor-L{nfA = ()} neq)
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast (Cast e' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} Cast-Dyn (Cast-Factor-R{nfB = ()} neq)
-
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast _ _ _)} (Cast-Sub{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.e'} (Cast-Sub x) (Cast-Sub x₁) = refl
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.Blame} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Fail{tynfA = tynfA}{tynfB = tynfB} x₁)
-  rewrite (TyG×TyNf-lim⇒match-equiv tygG tynfA) | (TyG×TyNf-lim⇒match-equiv tygH tynfB) = contradiction x x₁
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(ProdV _ _)} {.(Prod (Cast _ _ _) (Cast _ _ _))} (Cast-Sub{v = v}{tygG = GSigma}{neqG = neq , neq'} x) (Cast-Pair) = contradiction refl neq'
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast e' _ _)} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygG) A')
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast e' _ _)} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce (TyG⊂TyNf tygH) B')
-
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.Blame} {e''} (Cast-Fail{v = v}{tynfA = ()} x) Cast-Dyn
-⇨-determinism {n} {.(Cast e'' _ _)} {.Blame} {e''} (Cast-Fail{tynfA = tynfA}{tynfB = tynfB} x₁) (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x)
-  rewrite (TyG×TyNf-lim⇒match-equiv tygG tynfA) | (TyG×TyNf-lim⇒match-equiv tygH tynfB) = contradiction x x₁
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.Blame} (Cast-Fail{v = v} x) (Cast-Fail x₁) = refl
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.Blame} {e''} (Cast-Fail{v = v}{tynfA = ()} x) (Cast-Collapse x₁)
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Fail{v = v}{tynfA = ()} x) (Cast-Collide x₁)
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.Blame} {.(Prod (Cast _ _ _) (Cast _ _ _))} (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSigma} x) Cast-Pair = contradiction (ASubSigma ASubDyn ASubDyn) x
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v}{tynfA = nfA} x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfA) A')
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v}{tynfB = nfB} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfB) B')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.Blame} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Fail{v = v}{tynfB = ()} x) (Cast-Factor-L neq)
-⇨-determinism {n} {.(Cast _ Dyn _)} {.Blame} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Fail{v = v}{tynfA = ()} x) (Cast-Factor-R neq)
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Fail{v = v}{tynfB = ()} x) (Cast-Bot-R x₁)
-
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.(Cast _ Dyn _)} (Cast-Collapse{v = v}{tygG = tygG} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.Blame} (Cast-Collapse x) (Cast-Fail{tynfA = ()} x₁)
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.e'} (Cast-Collapse x) (Cast-Collapse x₁) = refl
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.Blame} (Cast-Collapse x) (Cast-Collide x₁) = contradiction x x₁
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.(Cast (Cast e' _ Dyn) Dyn _)} (Cast-Collapse{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ ((↠-TyNf-noreduce (TyG⊂TyNf tygH) B'))
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {e''} (Cast-Collapse{tygH = tygH} x) (Cast-Factor-R{nfB = tynfH} neq) = contradiction (sym (TyG×TyNf-lim⇒match-equiv tygH tynfH)) neq
-
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast _ Dyn _)} (Cast-Collide{v = v}{tygG = tygG} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Collide x) (Cast-Fail{tynfA = ()} x₁)
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.Blame} {e''} (Cast-Collide x) (Cast-Collapse x₁) = contradiction x₁ x
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Collide x) (Cast-Collide x₁) = refl
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast (Cast _ _ Dyn) Dyn _)} (Cast-Collide{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ ((↠-TyNf-noreduce (TyG⊂TyNf tygH) B'))
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast (Cast (Cast _ _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Collide{tygH = tygH} x) (Cast-Factor-R{nfB = tynfH} neq) = contradiction (sym (TyG×TyNf-lim⇒match-equiv tygH tynfH)) neq
-
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(Cast _ (Sigma _ _) (Sigma _ _))} (Cast-Pair{v = v}{w = w}) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VProd v w) e₂)
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(ProdV _ _)} Cast-Pair (Cast-Sub{tygG = GSigma}{tygH = GSigma}{neqH = neq , neq'} x) = contradiction refl neq'
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.Blame} Cast-Pair (Cast-Fail{tynfA = NfSigma}{tynfB = NfSigma} neq) = contradiction (ASubSigma ASubDyn ASubDyn) neq
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} Cast-Pair Cast-Pair = refl
-
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(App _ _)} (Cast-Func{v = v}) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce (VCastFun v ) e₁')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} (Cast-Func{w = w}) (ξ-App₂{e₂' = e₂'} r') = contradiction r' (⇨-Val-noreduce w e₂')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} Cast-Func Cast-Func = refl
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast e'' _ _)} {e''} (Cast-Reduce-L{A' = A'} x) (Cast-Sub{tygG = tygA} x₁) = contradiction x (↠-TyNf-noreduce (TyG⊂TyNf tygA) A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (Cast-Reduce-L{A' = A'} x) (Cast-Fail{tynfA = tynfA} x₁) = contradiction x (↠-TyNf-noreduce (TyNf-lim⊂TyNf tynfA) A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L x) (Cast-Reduce-L x₁) = {!!}
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L{A' = A'} x) (Cast-Reduce-R x₁ x₂) = contradiction x (↠-TyNf-noreduce x₁ A')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Reduce-L{A' = A'} x) (Cast-Factor-L{nfA = tynfA} neq) = contradiction x (↠-TyNf-noreduce (TyNf-lim⊂TyNf tynfA) A')
-⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (Cast-Reduce-L{A' = A'} x) (Cast-Bot-R x₁) = contradiction x (↠-TyNf-noreduce x₁ A')
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R{v = v} x x₁) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast e'' _ _)} {e''} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Sub{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Fail{tynfB = tynfB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyNf-lim⊂TyNf tynfB) B')
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast (Cast e'' _ Dyn) Dyn _)} {e''} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Collapse{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Collide{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-L{A' = A'} x₂) = contradiction x₂ (↠-TyNf-noreduce x A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-R x₂ x₃) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Factor-R{nfB = nfB} neq) = contradiction x₁ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfB) B')
-
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast _ _ Dyn)} (Cast-Factor-L{v = v} neq) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast (Cast e'' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {e''} (Cast-Factor-L{nfA = ()} neq) Cast-Dyn
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.Blame} (Cast-Factor-L neq) (Cast-Fail{tynfB = ()} x₁)
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast _ _ Dyn)} (Cast-Factor-L{nfA = nfA} neq) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfA) A')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-L{nfA = nfA} neq) (Cast-Factor-L{nfA = nfA'} neq₁) rewrite (TyNf-lim-uniqueness nfA nfA') = refl
-⇨-determinism {n} {.(Cast _ Dyn Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-L neq) (Cast-Factor-R{nfB = ()} neq')
-
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast _ Dyn _)} (Cast-Factor-R{v = v} neq) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast (Cast e'' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {e''} (Cast-Factor-R{nfB = ()} neq) Cast-Dyn
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.Blame} (Cast-Factor-R neq) (Cast-Fail{tynfA = ()} x₁)
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast (Cast (Cast e'' _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {e''} (Cast-Factor-R{nfB = nfB} neq) (Cast-Collapse{tygH = tygH} x₁) = contradiction (sym (TyG×TyNf-lim⇒match-equiv tygH nfB)) neq
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.Blame} (Cast-Factor-R{nfB = nfB} neq) (Cast-Collide{tygH = tygH} x₁) = contradiction (sym (TyG×TyNf-lim⇒match-equiv tygH nfB)) neq
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast _ Dyn _)} (Cast-Factor-R{nfB = nfB} neq) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfB) B')
-⇨-determinism {n} {.(Cast _ Dyn Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-R neq) (Cast-Factor-L{nfB = ()} neq')
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Factor-R neq) (Cast-Factor-R neq₁) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn Bot)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Bot)} {.Blame} (Cast-Factor-R{nfB = ()} neq) (Cast-Bot-R x₁)
-
-⇨-determinism {n} {.(App Blame _)} {.Blame} {.Blame} App₁-Blame App₁-Blame = refl
-
-⇨-determinism {n} {.(App _ Blame)} {.Blame} {.(App _ Blame)} (App₂-Blame{v = v}) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(App _ Blame)} {.Blame} {.Blame} App₂-Blame App₂-Blame = refl
-
-⇨-determinism {n} {.(LetE Blame _)} {.Blame} {.Blame} LetE-Blame LetE-Blame = refl
-
-⇨-determinism {n} {.(Prod Blame _)} {.Blame} {.Blame} Prod-Blame Prod-Blame = refl
-
-⇨-determinism {n} {.(ProdV _ Blame)} {.Blame} {.Blame} ProdV-Blame ProdV-Blame = refl
-
-⇨-determinism {n} {.(LetP Blame _)} {.Blame} {.Blame} LetP-Blame LetP-Blame = refl
-
-⇨-determinism {n} {.(Cast Blame _ _)} {.Blame} {.Blame} Cast-Blame Cast-Blame = refl
-
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.(Cast _ _ Bot)} (Cast-Bot-R{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Bot-R x) (Cast-Fail x₁) = {!!}
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.(Cast _ _ Bot)} (Cast-Bot-R x) (Cast-Reduce-L x₁) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn Bot)} {.Blame} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Bot)} (Cast-Bot-R x) (Cast-Factor-R neq) = {!!}
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Bot-R x) (Cast-Bot-R x₁) = {!!}
-
-⇨-determinism {n} {.(CaseE Blame _)} {.Blame} {.Blame} Case-Blame Case-Blame = refl
-
-
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₁ r) (ξ-App₁ r') = cong₂ App (⇨-determinism r r') refl
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₁{e₁' = e₁'} r) (ξ-App₂{v = v} r') = contradiction r (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {(App (Cast e (Pi A B) (Pi A' B')) e')} {.(App _ _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} (ξ-App₁{e₁' = e₁'} r) (Cast-Func{v = v}) = contradiction r (⇨-Val-noreduce (VCastFun v) e₁')
-⇨-determinism {n} {.(App _ Blame)} {.(App _ Blame)} {.Blame} (ξ-App₁{e₁' = e₁'} r) (App₂-Blame{v = v}) = contradiction r (⇨-Val-noreduce v e₁')
-
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₂{v = v} r) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(App _ _)} {.(App _ _)} {.(App _ _)} (ξ-App₂ r) (ξ-App₂ r') = cong₂ App refl (⇨-determinism r r')
-⇨-determinism {n} {.(App (Abs _) _)} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-App₂{e₂' = e₂'} r) (β-App v) = contradiction r (⇨-Val-noreduce v e₂')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} (ξ-App₂{e₂' = e₂'} r) (Cast-Func{w = w}) = contradiction r (⇨-Val-noreduce w e₂')
-
-⇨-determinism {n} {.(LetE _ _)} {.(LetE _ _)} {.(LetE _ _)} (ξ-LetE r) (ξ-LetE r') = cong₂ LetE (⇨-determinism r r') refl
-⇨-determinism {n} {.(LetE _ _)} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-LetE{e₁' = e₁'} r) (β-LetE v) = contradiction r (⇨-Val-noreduce v e₁')
-
-⇨-determinism {n} {.(Prod _ _)} {.(Prod _ _)} {.(Prod _ _)} (ξ-Prod r) (ξ-Prod r') = cong₂ Prod (⇨-determinism r r') refl
-⇨-determinism {n} {.(Prod _ _)} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (ξ-Prod{e₁' = e₁'} r) (β-Prod{v = v}) = contradiction r (⇨-Val-noreduce v e₁')
-
-⇨-determinism {n} {.(ProdV _ _)} {.(ProdV _ _)} {.(ProdV _ _)} (ξ-ProdV r) (ξ-ProdV r') = cong₂ ProdV refl (⇨-determinism r r')
-
-⇨-determinism {n} {.(LetP _ _)} {.(LetP _ _)} {.(LetP _ _)} (ξ-LetP r) (ξ-LetP r') = cong₂ LetP (⇨-determinism r r') refl
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(LetP _ _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} (ξ-LetP{e₁' = e₁'} r) (β-LetP v v') = contradiction r (⇨-Val-noreduce (VProd v v') e₁')
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast r) (ξ-Cast r') = cong₃ Cast (⇨-determinism r r') refl refl
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast _ Dyn Dyn)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Dyn{v = v}) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast _ _ _)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Sub{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Fail{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast _ Dyn _)} {e''} (ξ-Cast{e₂ = e₂} r) (Cast-Collapse{v = v}{tygG = tygG} x) = contradiction r (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast _ Dyn _)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Collide{v = v}{tygG = tygG} x) = contradiction r (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Cast _ (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} (ξ-Cast{e₂ = e₂} r) (Cast-Pair{v = v}{w = w}) = contradiction r (⇨-Val-noreduce (VProd v w) e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast{e₂ = e₂} r) (Cast-Reduce-L{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (ξ-Cast{e₂ = e₂} r) (Cast-Reduce-R{v = v} x x₁) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-L{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-R{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Bot-R{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
-
-⇨-determinism {n} {.(CaseE _ _)} {.(CaseE _ _)} {.(CaseE _ _)} (ξ-Case r) (ξ-Case r') = cong₂ CaseE (⇨-determinism r r') refl
-
-⇨-determinism {n} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(App (Abs _) _)} (β-App v) (ξ-App₂{e₂' = e₂'} r') = contradiction r' (⇨-Val-noreduce v e₂')
-⇨-determinism {n} {.(App (Abs _) _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (β-App v) (β-App v₁) = refl
-
-⇨-determinism {n} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(Prod _ _)} (β-Prod{v = v}) (ξ-Prod{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(Prod _ _)} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(ProdV _ ↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} β-Prod β-Prod = refl
-
-⇨-determinism {n} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(LetE _ _)} (β-LetE v) (ξ-LetE{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(LetE _ _)} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} {.(↑⁻¹[ [ 0 ↦ ↑¹[ _ ] ] _ ])} (β-LetE v) (β-LetE v₁) = refl
-
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} {.(LetP _ _)} (β-LetP v v') (ξ-LetP{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce (VProd v v') e₁')
-⇨-determinism {n} {.(LetP (ProdV _ _) _)} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} {.(↑ -[1+ 1 ] , 0 [ [ 0 ↦ ↑¹[ _ ] ] ([ 0 ↦ ↑ + 1 , 1 [ _ ] ] _) ])} (β-LetP v v') (β-LetP v₁ v'') = refl
-
-⇨-determinism {n} {.(CaseE (LabI _) _)} {.(_ _ ins)} {.(_ _ ins₁)} (β-LabE ins) (β-LabE ins₁) rewrite (ins-refl ins ins₁) = refl
-
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast _ Dyn Dyn)} (Cast-Dyn{v = v}) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.e'} Cast-Dyn Cast-Dyn = refl
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.Blame} Cast-Dyn (Cast-Fail x) = contradiction refl ?
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast (Cast e' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} Cast-Dyn (Cast-Factor-L neq) = contradiction refl ?
-⇨-determinism {n} {.(Cast e' Dyn Dyn)} {e'} {.(Cast (Cast e' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} Cast-Dyn (Cast-Factor-R neq) = contradiction refl ?
-
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast _ _ _)} (Cast-Sub{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.e'} (Cast-Sub x) (Cast-Sub x₁) = refl
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.Blame} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Fail{tynfA = tynfA}{tynfB = tynfB} x₁)
-  rewrite (TyG×TyNf-lim⇒match-equiv tygG tynfA) | (TyG×TyNf-lim⇒match-equiv tygH tynfB) = contradiction x x₁
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(ProdV _ _)} {.(Prod (Cast _ _ _) (Cast _ _ _))} (Cast-Sub{v = v}{tygG = GSigma} x) Cast-Pair = contradiction refl ?
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast e' _ _)} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygG) A')
-⇨-determinism {n} {.(Cast e' _ _)} {e'} {.(Cast e' _ _)} (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce (TyG⊂TyNf tygH) B')
--}
-{-
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.Blame} {e''} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) Cast-Dyn = contradiction refl ne
-⇨-determinism {n} {.(Cast e'' _ _)} {.Blame} {e''} (Cast-Fail{tynfA = tynfA}{tynfB = tynfB}{neq = neq , neq'} x₁) (Cast-Sub{v = v}{tygG = tygG}{tygH = tygH} x)
-  rewrite (TyG×TyNf⇒match-equiv{neq = neq} tygG tynfA) | (TyG×TyNf⇒match-equiv{neq = neq'} tygH tynfB) = contradiction x x₁
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.Blame} (Cast-Fail{v = v} x) (Cast-Fail x₁) = refl
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.Blame} {e''} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) (Cast-Collapse x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) (Cast-Collide x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.Blame} {.(Prod (Cast _ _ _) (Cast _ _ _))} (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSigma} x) Cast-Pair = contradiction (ASubSigma ASubDyn ASubDyn) x
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v}{tynfA = nfA} x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce nfA A')
-⇨-determinism {n} {.(Cast _ _ _)} {.Blame} {.(Cast _ _ _)} (Cast-Fail{v = v}{tynfB = nfB} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce nfB B')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.Blame} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) (Cast-Factor-L neq x₁) = contradiction refl n'''
-⇨-determinism {n} {.(Cast _ Dyn _)} {.Blame} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) (Cast-Factor-R neq x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Fail{v = v}{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x) (Cast-Bot-R x₁) = contradiction refl n''''
-
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.(Cast _ Dyn _)} (Cast-Collapse{v = v}{tygG = tygG} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.Blame} (Cast-Collapse x) (Cast-Fail{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.e'} (Cast-Collapse x) (Cast-Collapse x₁) = refl
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.Blame} (Cast-Collapse x) (Cast-Collide x₁) = contradiction x x₁
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {.(Cast (Cast e' _ Dyn) Dyn _)} (Cast-Collapse{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ ((↠-TyNf-noreduce (TyG⊂TyNf tygH) B'))
-⇨-determinism {n} {.(Cast (Cast e' _ Dyn) Dyn _)} {e'} {e''} (Cast-Collapse{tygH = tygH} x) (Cast-Factor-R{nfB = tynfH} neq x₁) = contradiction (sym (TyG×TyNf⇒match-equiv{neq = neq} tygH tynfH)) x₁
-
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast _ Dyn _)} (Cast-Collide{v = v}{tygG = tygG} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VCast v tygG) e₂)
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Collide x) (Cast-Fail{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.Blame} {e''} (Cast-Collide x) (Cast-Collapse x₁) = contradiction x₁ x
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.Blame} (Cast-Collide x) (Cast-Collide x₁) = refl
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast (Cast _ _ Dyn) Dyn _)} (Cast-Collide{tygH = tygH} x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ ((↠-TyNf-noreduce (TyG⊂TyNf tygH) B'))
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} {.(Cast (Cast (Cast _ _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Collide{tygH = tygH} x) (Cast-Factor-R{nfB = tynfH} neq x₁) = contradiction (sym (TyG×TyNf⇒match-equiv{neq = neq} tygH tynfH)) x₁
-
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(Cast _ (Sigma _ _) (Sigma _ _))} (Cast-Pair{v = v}{w = w}) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce (VProd v w) e₂)
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(ProdV _ _)} Cast-Pair (Cast-Sub{tygG = GSigma}{tygH = GSigma}{neqH = neq , neq'} x) = contradiction refl neq'
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.Blame} Cast-Pair (Cast-Fail{tynfA = NfSigma}{tynfB = NfSigma}{neq = neq , neq'} x) = contradiction (ASubSigma ASubDyn ASubDyn) x
-⇨-determinism {n} {.(Cast (ProdV _ _) (Sigma _ _) (Sigma _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} {.(Prod (Cast _ _ _) (Cast _ _ _))} Cast-Pair Cast-Pair = refl
-
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(App _ _)} (Cast-Func{v = v}) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce (VCastFun v ) e₁')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} (Cast-Func{w = w}) (ξ-App₂{e₂' = e₂'} r') = contradiction r' (⇨-Val-noreduce w e₂')
-⇨-determinism {n} {.(App (Cast _ (Pi _ _) (Pi _ _)) _)} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} {.(Cast (App _ (Cast _ _ _)) ([ 0 ↦ Cast _ _ _ ]ᵀ _) ([ 0 ↦ _ ]ᵀ _))} Cast-Func Cast-Func = refl
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast e'' _ _)} {e''} (Cast-Reduce-L{A' = A'} x) (Cast-Sub{tygG = tygA} x₁) = contradiction x (↠-TyNf-noreduce (TyG⊂TyNf tygA) A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (Cast-Reduce-L{A' = A'} x) (Cast-Fail{tynfA = tynfA} x₁) = contradiction x (↠-TyNf-noreduce tynfA A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L x) (Cast-Reduce-L x₁) = {!!}
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L{A' = A'} x) (Cast-Reduce-R x₁ x₂) = contradiction x (↠-TyNf-noreduce x₁ A')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Reduce-L{A' = A'} x) (Cast-Factor-L{nfA = tynfA} neq x₁) = contradiction x (↠-TyNf-noreduce tynfA A')
-⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (Cast-Reduce-L{A' = A'} x) (Cast-Bot-R x₁) = contradiction x (↠-TyNf-noreduce x₁ A')
-
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R{v = v} x x₁) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast e'' _ _)} {e''} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Sub{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.Blame} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Fail{tynfB = tynfB} x₂) = contradiction x₁ (↠-TyNf-noreduce tynfB B')
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast (Cast e'' _ Dyn) Dyn _)} {e''} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Collapse{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast _ _ Dyn) Dyn _)} {.Blame} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Collide{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-L{A' = A'} x₂) = contradiction x₂ (↠-TyNf-noreduce x A')
-⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-R x₂ x₃) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Factor-R{nfB = nfB} neq x₂) = contradiction x₁ (↠-TyNf-noreduce nfB B')
-
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast _ _ Dyn)} (Cast-Factor-L{v = v} neq x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast (Cast e'' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {e''} (Cast-Factor-L (neq , neq' , neq'') x) Cast-Dyn = contradiction refl neq
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.Blame} (Cast-Factor-L neq x) (Cast-Fail{neq = (ne , n' , n'') , (n''' , n'''' , n''''')}  x₁) = contradiction refl n'''
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast _ _ Dyn)} (Cast-Factor-L{nfA = nfA} neq x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce nfA A')
-⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ _ (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-L neq x) (Cast-Factor-L neq₁ x₁) = {!refl!}  -- need to replace nA ≢ Dyn ... to special Type
-⇨-determinism {n} {.(Cast _ Dyn Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-L neq x) (Cast-Factor-R (neq' , neq'' , neq''') x₁) = contradiction refl neq'
-
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast _ Dyn _)} (Cast-Factor-R{v = v} neq x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {.(Cast (Cast e'' Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {e''} (Cast-Factor-R (neq , neq' , neq'') x) Cast-Dyn = contradiction refl neq
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.Blame} (Cast-Factor-R neq x) (Cast-Fail{neq = (ne , n' , n'') , (n''' , n'''' , n''''')} x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast (Cast e'' _ Dyn) Dyn _)} {.(Cast (Cast (Cast e'' _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {e''} (Cast-Factor-R{nfB = nfB} neq x) (Cast-Collapse{tygH = tygH} x₁) = contradiction (sym (TyG×TyNf⇒match-equiv{neq = neq} tygH nfB)) x
-⇨-determinism {n} {.(Cast (Cast _ _ Dyn) Dyn _)} {.(Cast (Cast (Cast _ _ Dyn) Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.Blame} (Cast-Factor-R{nfB = nfB} neq x) (Cast-Collide{tygH = tygH} x₁) = contradiction (sym (TyG×TyNf⇒match-equiv{neq = neq} tygH nfB)) x
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast _ Dyn _)} (Cast-Factor-R{nfB = nfB} neq x) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce nfB B')
-⇨-determinism {n} {.(Cast _ Dyn Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Dyn)} (Cast-Factor-R neq x) (Cast-Factor-L (ne , ne' , ne'') x₁) = contradiction refl ne
-⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) _)} (Cast-Factor-R neq x) (Cast-Factor-R neq₁ x₁) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn Bot)} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Bot)} {.Blame} (Cast-Factor-R (ne , ne' , ne'') x) (Cast-Bot-R x₁) = contradiction refl ne'
-
-
-⇨-determinism {n} {.(App Blame _)} {.Blame} {.Blame} App₁-Blame App₁-Blame = refl
-
-⇨-determinism {n} {.(App _ Blame)} {.Blame} {.(App _ Blame)} (App₂-Blame{v = v}) (ξ-App₁{e₁' = e₁'} r') = contradiction r' (⇨-Val-noreduce v e₁')
-⇨-determinism {n} {.(App _ Blame)} {.Blame} {.Blame} App₂-Blame App₂-Blame = refl
-
-⇨-determinism {n} {.(LetE Blame _)} {.Blame} {.Blame} LetE-Blame LetE-Blame = {!!}
-
-⇨-determinism {n} {.(Prod Blame _)} {.Blame} {.Blame} Prod-Blame Prod-Blame = {!!}
-
-⇨-determinism {n} {.(ProdV _ Blame)} {.Blame} {.Blame} ProdV-Blame ProdV-Blame = {!!}
-
-⇨-determinism {n} {.(LetP Blame _)} {.Blame} {.Blame} LetP-Blame LetP-Blame = {!!}
-
-⇨-determinism {n} {.(Cast Blame _ _)} {.Blame} {.Blame} Cast-Blame Cast-Blame = {!!}
-
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.(Cast _ _ Bot)} (Cast-Bot-R{v = v} x) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Bot-R x) (Cast-Fail x₁) = {!!}
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.(Cast _ _ Bot)} (Cast-Bot-R x) (Cast-Reduce-L x₁) = {!!}
-⇨-determinism {n} {.(Cast _ Dyn Bot)} {.Blame} {.(Cast (Cast _ Dyn (proj₁ (_ match))) (proj₁ (_ match)) Bot)} (Cast-Bot-R x) (Cast-Factor-R neq x₁) = {!!}
-⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Bot-R x) (Cast-Bot-R x₁) = {!!}
-
-⇨-determinism {n} {.(CaseE Blame _)} {.Blame} {.Blame} Case-Blame Case-Blame = {!!}
--}
-{-
 ------------------------------------------------------------------------
 -- Evaluation
 
@@ -972,13 +665,14 @@ evaluate-step-type (Single x (Sigma A A₁)) | yes v = stuck
 evaluate-step-type (Single x (CaseT x₁ f)) | yes v = stuck
 evaluate-step-type (Single x Bot) | yes v = stuck
 evaluate-step-type (Single x Dyn) | yes v = stuck
+evaluate-step-type (Single x Top) | yes v = stuck
 
 evaluate-step-type (Label x) = result (RNf NfLabel)
 evaluate-step-type (Pi A A₁) = result (RNf NfPi)
 evaluate-step-type (Sigma A A₁) = result (RNf NfSigma)
 evaluate-step-type Dyn = result (RNf NfDyn)
 evaluate-step-type Bot = result (RNf NfBot)
-evaluate-step-type Top = stuck
+evaluate-step-type Top = result (RNf NfTop)
 
 evaluate-step-type (CaseT{s = s} x f)
   with evaluate-step-expr x
@@ -1105,14 +799,19 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 ...  | no ¬tyga
      with A ≡ᵀ? Bot
 ...     | yes eq' = stuck
-...     | no ¬eq' = step (Cast-Factor-L{v = v}{nfA = nfA} (¬eq , ¬eq') (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tyga nfA)))
+...     | no ¬eq'
+        with A ≡ᵀ? Top
+...        | yes eq'' = stuck
+...        | no ¬eq'' = step (Cast-Factor-L{v = v}{nfA = TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq' , ¬eq'')} ((A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tyga (TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq' , ¬eq''))))))
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁
   with TyG? B
 ...  | no ¬tygb rewrite eq
      with B ≡ᵀ? Bot
 ...     | yes eq' rewrite eq' = step (Cast-Bot-R{v = v} nfA)
-...     | no ¬eq' = step (Cast-Factor-R{v = v}{nfB = nfB} (¬eq₁ , ¬eq') (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tygb nfB)))
--- = step (Cast-Factor-R{v = v}{nfB = nfB} {!!} (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tygb nfB)))
+...     | no ¬eq'
+        with B ≡ᵀ? Top
+...        | yes eq'' = stuck
+...        | no ¬eq'' = step (Cast-Factor-R {v = v} {nfB = TyNf×¬DynBotTop→TyNf-lim nfB (¬eq₁ , ¬eq' , ¬eq'')} (A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tygb (TyNf×¬DynBotTop→TyNf-lim nfB (¬eq₁ , ¬eq' , ¬eq'')))))
 evaluate-step-expr (Cast .UnitE Dyn B) | result (RValue VUnit) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
 evaluate-step-expr (Cast .(LabI _) Dyn B) | result (RValue VLab) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
 evaluate-step-expr (Cast .(Abs _) Dyn B) | result (RValue VFun) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
@@ -1130,22 +829,22 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | yes eq' | yes eq₁' rewrite eq' | eq₁' = result (RValue (VCastFun v))
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | yes eq' | no ¬eq₁' rewrite eq'
   with tygB
-...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfUnit}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GLabel = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfLabel}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfUnit} λ ())
+...  | GLabel = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfLabel} λ ())
 ...  | GPi = contradiction refl ¬eq₁'
-...  | GSigma = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BLabel}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BUnit}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GSigma = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma} λ ())
+...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BLabel}} λ ())
+...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BUnit}} λ ())
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | yes eq₁' rewrite eq₁'
   with tygA
-...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GLabel =  step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfPi} λ ())
+...  | GLabel =  step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfPi} λ ())
 ...  | GPi = contradiction refl ¬eq'
-...  | GSigma = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+...  | GSigma = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi} λ ())
+...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfPi} ϱ)
      where ϱ : ¬ ([] ⊢ Single e' (Label s) ≤ᵀ Pi Dyn Dyn)
            ϱ (ASubSingle () x x₁)
-...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfPi} ϱ)
      where ϱ : ¬ ([] ⊢ Single e' UnitT ≤ᵀ Pi Dyn Dyn)
            ϱ (ASubSingle () x x₁)
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁'
@@ -1160,50 +859,51 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 ...  | VProd w w₁ = step (Cast-Pair{v = w}{w = w₁})
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁' | yes eq'' | no ¬eq₁'' rewrite eq''
   with tygB
-...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfUnit}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GLabel = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfLabel}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfUnit} λ ())
+...  | GLabel = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfLabel} λ ())
 ...  | GPi = contradiction refl ¬eq₁'
 ...  | GSigma = contradiction refl ¬eq₁''
-...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BLabel}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BUnit}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BLabel}} λ ())
+...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BUnit}} λ ())
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁' | no ¬eq'' | yes eq₁'' rewrite eq₁''
   with tygA
-...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
-...  | GLabel =  step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+...  | GUnit = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfSigma} λ ())
+...  | GLabel =  step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfSigma} λ ())
 ...  | GPi = contradiction refl ¬eq'
 ...  | GSigma = contradiction refl ¬eq''
-...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+...  | GSingleLabel{e = e'}{V = V}{s = s} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfSigma} ϱ)
      where ϱ : ¬ ([] ⊢ Single e' (Label s) ≤ᵀ Sigma Dyn Dyn)
            ϱ (ASubSingle () x x₁)
-...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+...  | GSingleUnit{e = e'}{V = V} = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfSigma} ϱ)
      where ϱ : ¬ ([] ⊢ Single e' UnitT ≤ᵀ Sigma Dyn Dyn)
            ϱ (ASubSingle () x x₁)
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | yes tygB | no ¬eq' | no ¬eq₁' | no ¬eq'' | no ¬eq₁''
   with []⊢ tygA ≤ᵀ? tygB
 ...  | yes leq = step (Cast-Sub{v = v}{tygG = tygA}{tygH = tygB}{neqG = ¬eq' , ¬eq''}{neqH = ¬eq₁' , ¬eq₁''} leq)
 ...  | no ¬leq
-        with (λ leqq → (Cast-Fail{v = v}{tynfA = nfA}{tynfB = nfB}{neq = (¬eq , (TyG-notBot tygA)) , ¬eq₁ , (TyG-notBot tygB)} leqq))
-...        | w rewrite (TyG×TyNf⇒match-equiv{neq = ¬eq , TyG-notBot tygA} tygA nfA) | (TyG×TyNf⇒match-equiv{neq = ¬eq₁ , TyG-notBot tygB} tygB nfB) = step (w ¬leq)
+        with (λ leqq → (Cast-Fail{v = v}{tynfA = TyG⊂TyNf-lim tygA}{tynfB = TyG⊂TyNf-lim tygB} leqq))
+...        | w rewrite (TyG×TyNf-lim⇒match-equiv tygA (TyG⊂TyNf-lim tygA)) | (TyG×TyNf-lim⇒match-equiv tygB (TyG⊂TyNf-lim tygB)) = step (w ¬leq)
 
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB
   with ¬TyG×TyNf-in ¬tygB nfB
 ...  | Dyn = contradiction refl ¬eq₁
+...  | Top = stuck
 ...  | Bot = step (Cast-Bot-R{v = v} nfA)
 -- A = Pi
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x
   with v | tygA
 evaluate-step-expr (Cast e UnitT (Pi A B)) | result (RValue v) | result (RNf NfUnit) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x | w | GUnit
- = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfPi} λ ())
 evaluate-step-expr (Cast e (Label s) (Pi A B)) | result (RValue v) | result (RNf NfLabel) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x | w | GLabel
- = step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfPi} λ ())
 evaluate-step-expr (Cast e (Sigma Dyn Dyn) (Pi A B)) | result (RValue v) | result (RNf NfSigma) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x | w | GSigma
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi} λ ())
 evaluate-step-expr (Cast e (Single e' G) (Pi A B)) | result (RValue v) | result (RNf (NfSingle{V = V}{tybB = tybB})) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x | w | GSingleLabel{s = s}
-  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfPi} ϱ)
   where ϱ : ¬ ([] ⊢ Single e' (Label s) ≤ᵀ Pi Dyn Dyn)
         ϱ (ASubSingle constr () x₁)       
 evaluate-step-expr (Cast e (Single e' G) (Pi A B)) | result (RValue v) | result (RNf (NfSingle{V = V}{tybB = tybB})) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x | w | GSingleUnit
-  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfPi} ϱ)
   where ϱ : ¬ ([] ⊢ Single e' UnitT ≤ᵀ Pi Dyn Dyn)
         ϱ (ASubSingle constr () x₁)   
 
@@ -1212,17 +912,17 @@ evaluate-step-expr (Cast e (Pi Dyn Dyn) (Pi A B)) | result (RValue v) | result (
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x
   with v | tygA
 evaluate-step-expr (Cast e UnitT (Sigma A B)) | result (RValue v) | result (RNf NfUnit) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | w | GUnit
- = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfUnit}{tynfB = NfSigma} λ ())
 evaluate-step-expr (Cast e (Label s) (Sigma A B)) | result (RValue v) | result (RNf NfLabel) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | w | GLabel
- = step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfLabel}{tynfB = NfSigma} λ ())
 evaluate-step-expr (Cast e (Pi Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf NfPi) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | w | GPi
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma} λ ())
 evaluate-step-expr (Cast e (Single e' G) (Sigma A B)) | result (RValue v) | result (RNf (NfSingle{V = V}{tybB = tybB})) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | w | GSingleLabel{s = s}
-  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BLabel}}{tynfB = NfSigma} ϱ)
   where ϱ : ¬ ([] ⊢ Single e' (Label s) ≤ᵀ Sigma Dyn Dyn)
         ϱ (ASubSingle constr () x₁)  
 evaluate-step-expr (Cast e (Single e' G) (Sigma A B)) | result (RValue v) | result (RNf (NfSingle{V = V}{tybB = tybB})) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | w | GSingleUnit
-  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} ϱ)
+  = step (Cast-Fail{v = v}{tynfA = NfSingle{V = V}{tybB = BUnit}}{tynfB = NfSigma} ϱ)
   where ϱ : ¬ ([] ⊢ Single e' UnitT ≤ᵀ Sigma Dyn Dyn)
         ϱ (ASubSingle constr () x₁)  
 evaluate-step-expr (Cast .UnitE (Sigma Dyn Dyn) (Sigma A B)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Sigma x | VUnit | GSigma = stuck
@@ -1236,20 +936,21 @@ evaluate-step-expr (Cast .(ProdV _ _) (Sigma Dyn Dyn) (Sigma A B)) | result (RVa
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB
   with ¬TyG×TyNf-in ¬tygA nfA
 ...  | Dyn = contradiction refl ¬eq
+...  | Top = stuck
 ...  | Bot = stuck
 -- A = Pi
 evaluate-step-expr (Cast e (Pi A B) C) | result (RValue v) | result (RNf NfPi) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x
   with tygB
 evaluate-step-expr (Cast e (Pi A B) UnitT) | result (RValue v) | result (RNf NfPi) | result (RNf NfUnit) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GUnit
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfUnit}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfUnit} λ ())
 evaluate-step-expr (Cast e (Pi A B) (Label s)) | result (RValue v) | result (RNf NfPi) | result (RNf NfLabel) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GLabel
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfLabel}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfLabel} λ ())
 evaluate-step-expr (Cast e (Pi A B) (Sigma Dyn Dyn)) | result (RValue v) | result (RNf NfPi) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GSigma
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSigma} λ ())
 evaluate-step-expr (Cast e (Pi A B) (Single e' G)) | result (RValue v) | result (RNf NfPi) | result (RNf (NfSingle{V = V}{tybB = tybB})) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GSingleLabel{s = s}
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BLabel{s = s}}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BLabel{s = s}}} λ ())
 evaluate-step-expr (Cast e (Pi A B) (Single e' G)) | result (RValue v) | result (RNf NfPi) | result (RNf (NfSingle{V = V}{tybB = tybB})) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GSingleUnit
- = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BUnit}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfPi}{tynfB = NfSingle{V = V}{tybB = BUnit}} λ ())
 
 evaluate-step-expr (Cast e (Pi A B) (Pi Dyn Dyn)) | result (RValue v) | result (RNf NfPi) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x | GPi
  = result (RValue (VCastFun v))
@@ -1257,15 +958,15 @@ evaluate-step-expr (Cast e (Pi A B) (Pi Dyn Dyn)) | result (RValue v) | result (
 evaluate-step-expr (Cast e (Sigma A B) C) | result (RValue v) | result (RNf NfSigma) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x
   with tygB
 evaluate-step-expr (Cast e (Sigma A B) UnitT) | result (RValue v) | result (RNf NfSigma) | result (RNf NfUnit) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GUnit
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfUnit}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfUnit} λ ())
 evaluate-step-expr (Cast e (Sigma A B) (Label s)) | result (RValue v) | result (RNf NfSigma) | result (RNf NfLabel) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GLabel
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfLabel}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfLabel} λ ())
 evaluate-step-expr (Cast e (Sigma A B) (Pi Dyn Dyn)) | result (RValue v) | result (RNf NfSigma) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GPi
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfPi} λ ())
 evaluate-step-expr (Cast e (Sigma A B) (Single e' G)) | result (RValue v) | result (RNf NfSigma) | result (RNf (NfSingle{V = V}{tybB = tybB})) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSingleLabel{s = s}
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BLabel{s = s}}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BLabel{s = s}}} λ ())
 evaluate-step-expr (Cast e (Sigma A B) (Single e' G)) | result (RValue v) | result (RNf NfSigma) | result (RNf (NfSingle{V = V}{tybB = tybB})) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSingleUnit
- = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BUnit}}{neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} λ ())
+ = step (Cast-Fail{v = v}{tynfA = NfSigma}{tynfB = NfSingle{V = V}{tybB = BUnit}} λ ())
 evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
 evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
 evaluate-step-expr (Cast .(Abs _) (Sigma A B) (Sigma Dyn Dyn)) | result (RValue VFun) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Sigma x | GSigma = stuck
@@ -1278,21 +979,30 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 ...  | Bot | Pi x = stuck
 ...  | Bot | Sigma x = stuck
 ...  | Bot | Dyn = stuck
+...  | Bot | Top = stuck
 ...  | Bot | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Top | Top = stuck
+...  | Top | Pi x = stuck
+...  | Top | Sigma x = stuck
+...  | Top | Dyn = stuck
+...  | Top | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Dyn | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Pi x | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Sigma x | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Pi x | Top = stuck
+...  | Sigma x | Top = stuck
 ...  | Dyn | Dyn = contradiction refl ¬eq
+...  | Dyn | Top = contradiction refl ¬eq
 ...  | Dyn | Pi x = contradiction refl ¬eq
 ...  | Pi x | Dyn = contradiction refl ¬eq₁
 ...  | Dyn | Sigma x = contradiction refl ¬eq
 ...  | Sigma x | Dyn = contradiction refl ¬eq₁
 evaluate-step-expr (Cast e (Pi A B) (Sigma A' B')) | result (RValue v) | result (RNf NfPi) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Pi x | Sigma x₁
   = step (Cast-Fail {v = v} {tynfA = NfPi} {tynfB = NfSigma}
-            {neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} (λ ()))
+             (λ ()))
 evaluate-step-expr (Cast e (Sigma A B) (Pi A' B')) | result (RValue v) | result (RNf NfSigma) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Pi x₁
   = step (Cast-Fail {v = v} {tynfA = NfSigma} {tynfB = NfPi}
-            {neq = ((λ ()) , (λ ())) , ((λ ()) , (λ ()))} (λ ()))
+             (λ ()))
 evaluate-step-expr (Cast e (Pi A B) (Pi A' B')) | result (RValue v) | result (RNf NfPi) | result (RNf NfPi) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Pi x | Pi x₁ = result (RValue (VCastFun v))
 evaluate-step-expr (Cast .UnitE (Sigma A B) (Sigma A' B')) | result (RValue VUnit) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
 evaluate-step-expr (Cast .(LabI _) (Sigma A B) (Sigma A' B')) | result (RValue VLab) | result (RNf NfSigma) | result (RNf NfSigma) | no ¬eq | no ¬eq₁ | no ¬tygA | no ¬tygB | Sigma x | Sigma x₁ = stuck
@@ -1375,6 +1085,11 @@ cast Dyn A B
   with A ≡ᵀ? Dyn
 ...  | yes eq = just B
 ...  | no ¬eq = nothing
+cast Top A B
+  with A ≡ᵀ? Top
+...  | yes eq = just B
+...  | no ¬eq = nothing
+
 
 -- Sanity check
 s : Subset 2
@@ -1398,4 +1113,3 @@ blame = refl
 
 _ : (evaluate-full (gas 100) (CaseE{s = (inside ∷ (inside ∷ []))} (Cast (Cast (LabI zero) (Label (inside ∷ (outside ∷ []))) Dyn) Dyn (Label (inside ∷ (inside ∷ [])))) (λ l → λ ins → UnitE))) ≡ (UnitE , (result (RValue VUnit)))
 _ = refl
--}
