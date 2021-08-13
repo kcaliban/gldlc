@@ -61,6 +61,9 @@ n≤ᴺsucn : {n : ℕ} → n ≤ᴺ ℕ.suc n
 n≤ᴺsucn {zero} = z≤n
 n≤ᴺsucn {ℕ.suc n} = s≤s n≤ᴺsucn
 
+cong₃ : {A B C D : Set} → ∀ (f : A → B → C → D) {x y u v q r} → x ≡ y → u ≡ v → q ≡ r → f x u q ≡ f y v r
+cong₃ f refl refl refl = refl
+
 ------------------------------------------------------------------------
 -- Various subset properties
 
@@ -88,6 +91,10 @@ l∈L⇒[l]⊆L {n} {l} {L} ins x rewrite (x∈[l]⇒x≡l x) = ins
 in-subset-uniqueness : {n : ℕ} {x : Fin n} {s : Subset n} → (l l' : x ∈ s) → l ≡ l'
 in-subset-uniqueness {.(ℕ.suc _)} {.zero} here here = refl
 in-subset-uniqueness {.(ℕ.suc _)} {.(Fin.suc _)} (there l) (there l') = cong there (in-subset-uniqueness l l')
+
+ins-refl : {n : ℕ} {x : Fin n} {s : Subset n} → (ins ins' : x ∈ s) → ins ≡ ins'
+ins-refl {.(ℕ.suc _)} {.zero} {.(true ∷ _)} here here = refl
+ins-refl {.(ℕ.suc _)} {.(Fin.suc _)} {.(_ ∷ _)} (there ins) (there ins') = cong there (ins-refl ins ins')
 
 ------------------------------------------------------------------------
 -- Decidable equality of functions (f : l → l ∈ s → A)
