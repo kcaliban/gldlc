@@ -73,6 +73,10 @@ open import Typing-Semantics
 ⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {e*} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-L{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
 ⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {e*} (ξ-Cast{e₂ = e₂} r) (Cast-Factor-R{v = v} neq) = contradiction r (⇨-Val-noreduce v e₂)
 ⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Bot-R{v = v} x) = contradiction r (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {e} (ξ-Cast{e₂ = e₂} r) (Cast-Top{v = v}) = contradiction r (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {e} (ξ-Cast{e₂ = e₂} r) (Cast-Top-R{v = v} x y) = contradiction r (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {Blame} (ξ-Cast{e₂ = e₂} r) (Cast-Top-L{v = v} x y) = contradiction r (⇨-Val-noreduce v e₂)
+
 
 ⇨-determinism {n} {.(CaseE _ _)} {.(CaseE _ _)} {.(CaseE _ _)} (ξ-Case r) (ξ-Case r') = cong₂ CaseE (⇨-determinism r r') refl
 
@@ -148,6 +152,7 @@ open import Typing-Semantics
 ⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-L{A' = A'} x) (Cast-Reduce-R x₁ x₂) = contradiction x (↠-TyNf-noreduce x₁ A')
 ⇨-determinism {n} {.(Cast _ _ Dyn)} {.(Cast _ _ Dyn)} {e*} (Cast-Reduce-L{A' = A'} x) (Cast-Factor-L{nfA = tynfA} neq) = contradiction x (↠-TyNf-noreduce (TyNf-lim⊂TyNf tynfA) A')
 ⇨-determinism {n} {.(Cast _ _ Bot)} {.(Cast _ _ Bot)} {.Blame} (Cast-Reduce-L{A' = A'} x) (Cast-Bot-R x₁) = contradiction x (↠-TyNf-noreduce x₁ A')
+⇨-determinism {n} {.(Cast _ _ Top)} {.(Cast _ _ _)} {e*} (Cast-Reduce-L{A' = A'} x) (Cast-Top-R z y) = contradiction x (↠-TyNf-noreduce z A')
 
 ⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R{v = v} x x₁) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
 ⇨-determinism {n} {.(Cast e'' _ _)} {.(Cast e'' _ _)} {e''} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Sub{tygH = tygB} x₂) = contradiction x₁ (↠-TyNf-noreduce (TyG⊂TyNf tygB) B')
@@ -157,6 +162,7 @@ open import Typing-Semantics
 ⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-L{A' = A'} x₂) = contradiction x₂ (↠-TyNf-noreduce x A')
 ⇨-determinism {n} {.(Cast _ _ _)} {.(Cast _ _ _)} {.(Cast _ _ _)} (Cast-Reduce-R x x₁) (Cast-Reduce-R x₂ x₃) = cong₃ Cast refl refl (↠-determinism x₁ x₃)
 ⇨-determinism {n} {.(Cast _ Dyn _)} {.(Cast _ Dyn _)} {e*} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Factor-R{nfB = nfB} neq) = contradiction x₁ (↠-TyNf-noreduce (TyNf-lim⊂TyNf nfB) B')
+⇨-determinism {n} {.(Cast _ Top _)} {.(Cast _ _ _)} {e*} (Cast-Reduce-R{B' = B'} x x₁) (Cast-Top-L z y) = contradiction x₁ (↠-TyNf-noreduce z B')
 
 ⇨-determinism {n} {.(Cast _ _ Dyn)} {e*} {.(Cast _ _ Dyn)} (Cast-Factor-L{v = v} neq) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
 ⇨-determinism {n} {.(Cast e'' Dyn Dyn)} {e*} {e''} (Cast-Factor-L{nfA = ()} neq) Cast-Dyn
@@ -195,6 +201,24 @@ open import Typing-Semantics
 ⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.(Cast _ _ Bot)} (Cast-Bot-R x) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce x A')
 ⇨-determinism {n} {.(Cast _ Dyn Bot)} {.Blame} {e*} (Cast-Bot-R x) (Cast-Factor-R{nfB = ()} neq)
 ⇨-determinism {n} {.(Cast _ _ Bot)} {.Blame} {.Blame} (Cast-Bot-R x) (Cast-Bot-R x₁) = refl
+⇨-determinism {n} {.(Cast _ Top Bot)} {.Blame} {e*} (Cast-Bot-R x) (Cast-Top-L z (neq , neq')) = contradiction refl neq'
 
 ⇨-determinism {n} {.(CaseE Blame _)} {.Blame} {.Blame} Case-Blame Case-Blame = refl
 
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.(Cast _ Top Top)} (Cast-Top{v = v}) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.e} Cast-Top Cast-Top = refl
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.Blame} Cast-Top (Cast-Top-L x (neq , neq')) = contradiction refl neq
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.e} Cast-Top (Cast-Top-R x neq) = contradiction refl neq
+
+⇨-determinism {n} {.(Cast e _ Top)} {e} {.(Cast _ _ Top)} (Cast-Top-R{v = v} x y) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast e _ Top)} {e} {.(Cast e _ Top)} (Cast-Top-R x y) (Cast-Reduce-L{A' = A'} x₁) = contradiction x₁ (↠-TyNf-noreduce x A')
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.e} (Cast-Top-R x y) Cast-Top = contradiction refl y
+⇨-determinism {n} {.(Cast e Top Top)} {e} {.Blame} (Cast-Top-R x y) (Cast-Top-L x₁ x₂) = contradiction refl y
+⇨-determinism {n} {.(Cast e _ Top)} {e} {.e} (Cast-Top-R x y) (Cast-Top-R x₁ x₂) = refl
+
+⇨-determinism {n} {.(Cast _ Top _)} {Blame} {.(Cast _ Top _)} (Cast-Top-L{v = v} x y) (ξ-Cast{e₂ = e₂} r') = contradiction r' (⇨-Val-noreduce v e₂)
+⇨-determinism {n} {.(Cast _ Top _)} {Blame} {.(Cast _ Top _)} (Cast-Top-L x y) (Cast-Reduce-R{B' = B'} x₁ x₂) = contradiction x₂ (↠-TyNf-noreduce x B')
+⇨-determinism {n} {.(Cast e' Top Top)} {Blame} {e'} (Cast-Top-L x (neq , neq')) Cast-Top = contradiction refl neq
+⇨-determinism {n} {.(Cast _ Top _)} {Blame} {.Blame} (Cast-Top-L x y) (Cast-Top-L x₁ x₂) = refl
+⇨-determinism {n} {.(Cast e' Top Top)} {Blame} {e'} (Cast-Top-L x (neq , neq')) (Cast-Top-R x₁ x₂) = contradiction refl neq
+⇨-determinism {n} {.(Cast _ Top Bot)} {Blame} {.Blame} (Cast-Top-L x (neq , neq')) (Cast-Bot-R x₁) = contradiction refl neq'

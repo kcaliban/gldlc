@@ -649,6 +649,7 @@ progress-types : {n : ℕ} {A : Ty {n}} → (j : [] ⊢ A) → Progress-Type A {
 progress : {n : ℕ} {e : Exp {n}} {T : Ty} → (j : [] ⊢ e ▷ T) → Progress e {T} {j}
 
 progress-types {n} {.Dyn} (DynF x) = result (RNf NfDyn)
+progress-types {n} {.Top} (TopF x) = result (RNf NfTop)
 progress-types {n} {.UnitT} (UnitF x) = result (RNf NfUnit)
 progress-types {n} {.Bot} (BotF x) = result (RNf NfBot)
 progress-types {n} {.(Label _)} (LabF x) = result (RNf NfLabel)
@@ -739,18 +740,18 @@ progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue
 ...  | no ¬tyga
      with A ≡ᵀ? Bot
 ...     | yes eq` rewrite eq` = contradiction (CastA{ok = ok}{ok' = ok'} j x) (cf-not-bot-corollary v T)
-...     | no ¬eq` --  = step (Cast-Factor-L{v = v}{nfA = nfA} (¬eq , ¬eq') (A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tyga nfA)))
+...     | no ¬eq`
         with A ≡ᵀ? Top
-...        | yes eq'' rewrite eq'' = {!!}
+...        | yes eq'' rewrite eq'' = step (Cast-Top-L{v = v} nfB ((λ ()) , (λ ())))
 ...        | no ¬eq'' = step (Cast-Factor-L{v = v}{nfA = TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq` , ¬eq'')} ((A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tyga (TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq` , ¬eq''))))))
 progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq' rewrite eq
   with TyG? B
 ...  | no ¬tygb
      with B ≡ᵀ? Bot
 ...     | yes eq` rewrite eq` = step (Cast-Bot-R{v = v} nfA)
-...     | no ¬eq` --  = step (Cast-Factor-R{v = v}{nfB = nfB} (¬eq' , ¬eq') (A≢B→B≢A (¬TyG×TyNf-in⇒match-inequiv ¬tygb nfB)))
+...     | no ¬eq`
         with B ≡ᵀ? Top
-...        | yes eq'' rewrite eq'' = {!!}
+...        | yes eq'' rewrite eq'' = step (Cast-Top-R {v = v} nfA (λ ()))
 ...        | no ¬eq'' = step (Cast-Factor-R {v = v} {nfB = TyNf×¬DynBotTop→TyNf-lim nfB (¬eq' , ¬eq` , ¬eq'')} (A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tygb (TyNf×¬DynBotTop→TyNf-lim nfB (¬eq' , ¬eq` , ¬eq'')))))
 progress {n} {Cast e Dyn B} {T} (CastA {A' = A'} {ok = ok} {ok' = ok'} j (fst , snd)) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes refl | no ¬eq' | yes tygb
   with (cast-invert'{A' = A'}{A = Dyn}{B = B} fst)
@@ -832,15 +833,11 @@ progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue
      with (λ leqq → (Cast-Fail{v = v}{tynfA = TyG⊂TyNf-lim tygA}{tynfB = TyG⊂TyNf-lim tygB} leqq))
 ...     | w rewrite (TyG×TyNf-lim⇒match-equiv tygA (TyG⊂TyNf-lim tygA)) | (TyG×TyNf-lim⇒match-equiv tygB (TyG⊂TyNf-lim tygB)) = step (w ¬leq)
 
-{-
-        with (λ leqq → (Cast-Fail{v = v}{tynfA = nfA}{tynfB = nfB}{neq = (¬eq , (TyG-notBot tygA)) , ¬eq' , (TyG-notBot tygB)} leqq))
-...        | w rewrite (TyG×TyNf⇒match-equiv{neq = (¬eq , (TyG-notBot tygA))} tygA nfA) | (TyG×TyNf⇒match-equiv{neq = ¬eq' , (TyG-notBot tygB)} tygB nfB) = step (w ¬leq)
--}
-
 progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} j x) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq' | yes tygA | no ¬tygB
   with ¬TyG×TyNf-in ¬tygB nfB
 ...  | Dyn = contradiction refl ¬eq'
 ...  | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Top = step (Cast-Top-R{v = v} nfA (TyG-notTop tygA))
 -- A = Pi
 progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} z z') | (result (RValue v)) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x
   with v | tygA
@@ -887,6 +884,7 @@ progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} z z') | (result (RVal
   with ¬TyG×TyNf-in ¬tygA nfA
 ...  | Dyn = contradiction refl ¬eq
 ...  | Bot = contradiction (CastA{ok = ok}{ok' = ok'} z z') ((cf-not-bot-corollary v T))
+...  | Top = step (Cast-Top-L{v = v} nfB ((TyG-notTop tygB) , (TyG-notBot tygB)))
 -- A = Pi
 progress {n} {(Cast e (Pi A B) C)} {T} (CastA{ok = ok}{ok' = ok'} z z') | (result (RValue v)) | result (RNf NfPi) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x
   with tygB
@@ -929,9 +927,18 @@ progress {n} {(Cast e A B)} {T} (CastA{ok = ok}{ok' = ok'} z z') | (result (RVal
 ...  | Bot | Sigma x = contradiction (CastA{ok = ok}{ok' = ok'} z z') ((cf-not-bot-corollary v T))
 ...  | Bot | Dyn = contradiction (CastA{ok = ok}{ok' = ok'} z z') ((cf-not-bot-corollary v T))
 ...  | Bot | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Bot | Top = step (Cast-Top-R{v = v} nfA (λ ()))
+...  | Top | Pi x = step (Cast-Top-L{v = v} nfB ((λ ()) , (λ ())))
+...  | Top | Sigma x = step (Cast-Top-L{v = v} nfB ((λ ()) , (λ ())))
+...  | Top | Dyn = step (Cast-Top-L{v = v} nfB ((λ ()) , (λ ())))
+...  | Top | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Top | Top = step (Cast-Top{v = v})
 ...  | Dyn | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Dyn | Top = step (Cast-Top-R{v = v} nfA (λ ()))
 ...  | Pi x | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Pi x | Top = step ((Cast-Top-R{v = v} nfA (λ ())))
 ...  | Sigma x | Bot = step (Cast-Bot-R{v = v} nfA)
+...  | Sigma x | Top = step ((Cast-Top-R{v = v} nfA (λ ())))
 ...  | Dyn | Dyn = contradiction refl ¬eq
 ...  | Dyn | Pi x = contradiction refl ¬eq
 ...  | Pi x | Dyn = contradiction refl ¬eq₁
