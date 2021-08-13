@@ -256,7 +256,7 @@ data TyNf {n} : Ty {n} → Set where
   NfSigma : {A B : Ty {n}} → TyNf (Sigma A B)
   NfSingle : {B : Ty {n}} {e : Exp {n}} {V : Val e} {tybB : notSingle×Base B} → TyNf (Single e B)
 
--- Nf without Dyn, Bot, Top
+-- Nf without Dyn, Bot
 data TyNf-lim {n} : Ty {n} → Set where
   NfUnit : TyNf-lim UnitT
   NfLabel : {s : Subset n} → TyNf-lim (Label s)
