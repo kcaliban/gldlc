@@ -51,7 +51,6 @@ data Ty {n} where
   Sigma : {i : Size} → Ty {n} {i} → Ty {n} {i} → Ty {n} {↑ˡ i}
   CaseT : {i : Size} {s : Subset n} → Exp {n} {i} → (f : ∀ l → l ∈ s → Ty {n} {i}) → Ty {n} {↑ˡ i}
   Bot : {i : Size} → Ty {n} {i}
-  Top : {i : Size} → Ty {n} {i}
   Dyn : {i : Size} → Ty {n} {i}
 
 data Val {n : ℕ} : {i : Size} → Exp {n} {i} → Set
@@ -162,7 +161,6 @@ data PiView {n : ℕ} : Ty {n} → Set where
 
 piView : {n : ℕ} → (T : Ty {n}) → PiView T
 piView {n} Bot = other-v{neq = λ B C → λ ()}
-piView {n} Top = other-v{neq = λ B C → λ ()}
 piView {n} UnitT = other-v{neq = λ B C → λ ()}
 piView {n} Dyn = other-v{neq = λ B C → λ ()}
 piView {n} (Single x A) = other-v{neq = λ B C → λ ()}
@@ -177,7 +175,6 @@ data SingleView {n : ℕ} : Ty {n} → Set where
 
 singleView : {n : ℕ} → (T : Ty {n}) → SingleView T
 singleView {n} Bot = other-v{neq = λ e B → λ ()}
-singleView {n} Top = other-v{neq = λ e B → λ ()}
 singleView {n} UnitT = other-v{neq = λ e B → λ ()}
 singleView {n} Dyn = other-v{neq = λ e B → λ ()}
 singleView {n} (Label x) = other-v{neq = λ e B → λ ()}
@@ -205,9 +202,6 @@ issingle? CaseT x f = no ϱ
         ϱ (a , b , ())
 issingle? Bot = no ϱ
   where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Bot ≡ Single e B))
-        ϱ (a , b , ())
-issingle? Top = no ϱ
-  where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Top ≡ Single e B))
         ϱ (a , b , ())
 issingle? Dyn = no ϱ
   where ϱ : ¬ ∃-syntax (λ e → ∃-syntax (λ B → Dyn ≡ Single e B))
@@ -302,14 +296,6 @@ TyG-notBot {n} {.(Sigma Dyn Dyn)} GSigma = λ ()
 TyG-notBot {n} {.(Single _ (Label _))} GSingleLabel = λ ()
 TyG-notBot {n} {.(Single _ UnitT)} GSingleUnit = λ ()
 
-TyG-notTop : {n : ℕ} {A : Ty {n}} → TyG A → A ≢ Top
-TyG-notTop {n} {.UnitT} GUnit = λ ()
-TyG-notTop {n} {.(Label _)} GLabel = λ ()
-TyG-notTop {n} {.(Pi Dyn Dyn)} GPi = λ ()
-TyG-notTop {n} {.(Sigma Dyn Dyn)} GSigma = λ ()
-TyG-notTop {n} {.(Single _ (Label _))} GSingleLabel = λ ()
-TyG-notTop {n} {.(Single _ UnitT)} GSingleUnit = λ ()
-
 ------------------------------------------------------------------------
 -- decidable
 
@@ -325,7 +311,6 @@ TyB?_ : {n : ℕ} (A : Ty {n}) → Dec (TyB A)
 
 TyG? UnitT = yes GUnit
 TyG? Label x = yes GLabel
-TyG? Top = no λ ()
 TyG? Single x A
   with Val? x
 ...  | no ¬v = no ϱ
@@ -340,7 +325,6 @@ TyG? Single x A
 (TyG? Single x (CaseT x₁ f)) | yes v = no λ ()
 (TyG? Single x Bot) | yes v = no λ ()
 (TyG? Single x Dyn) | yes v = no λ ()
-(TyG? Single x Top) | yes v = no λ ()
 TyG? Pi A A₁
   with A ≡ᵀ? Dyn | A₁ ≡ᵀ? Dyn
 ...  | yes eq | yes eq' rewrite eq | eq' = yes GPi
@@ -516,7 +500,6 @@ TyB? Single UnitE (Pi A A₁) = no λ ()
 TyB? Single UnitE (Sigma A A₁) = no λ ()
 TyB? Single UnitE (CaseT x f) = no λ ()
 TyB? Single UnitE Bot = no λ ()
-TyB? Single UnitE Top = no λ ()
 TyB? Single UnitE Dyn = no λ ()
 TyB? Single (LabI l) UnitT = no λ ()
 TyB? Single (LabI l) (Single x A) = no λ ()
@@ -524,7 +507,6 @@ TyB? Single (LabI l) (Pi A A₁) = no λ ()
 TyB? Single (LabI l) (Sigma A A₁) = no λ ()
 TyB? Single (LabI l) (CaseT x f) = no λ ()
 TyB? Single (LabI l) Bot = no λ ()
-TyB? Single (LabI l) Top = no λ ()
 TyB? Single (LabI l) Dyn = no λ ()
 TyB? Single (Var x) A = no λ ()
 TyB? Single (Abs e) A = no λ ()
@@ -542,7 +524,6 @@ TyB? Sigma A A₁ = no λ ()
 TyB? CaseT x f = no λ ()
 TyB? Bot = no λ ()
 TyB? Dyn = no λ ()
-TyB? Top = no λ ()
 
 
 -- Syntactic equality implementations
@@ -799,7 +780,6 @@ Cast e- A B ≡ᵉ? LetP e' e'' = no λ ()
 Cast e- A B ≡ᵉ? LetE e# e## = no λ ()
 
 Bot ≡ᵀ? Bot = yes refl
-Top ≡ᵀ? Top = yes refl
 UnitT ≡ᵀ? UnitT = yes refl
 Dyn ≡ᵀ? Dyn = yes refl
 
@@ -867,14 +847,12 @@ _≡ᵀ?_ {n} .{↑ˡ i} (CaseT{i = i}{s = s} e f) (CaseT{i = .i}{s = s'} e' f')
 
 Bot ≡ᵀ? UnitT = no λ ()
 Bot ≡ᵀ? Dyn = no λ ()
-Bot ≡ᵀ? Top = no λ ()
 Bot ≡ᵀ? Single V A = no λ ()
 Bot ≡ᵀ? Label L = no λ ()
 Bot ≡ᵀ? Pi nA B = no λ ()
 Bot ≡ᵀ? Sigma nA' B' = no λ ()
 Bot ≡ᵀ? CaseT U f = no λ ()
 UnitT ≡ᵀ? Bot = no λ ()
-UnitT ≡ᵀ? Top = no λ ()
 UnitT ≡ᵀ? Dyn = no λ ()
 UnitT ≡ᵀ? Single V A = no λ ()
 UnitT ≡ᵀ? Label L = no λ ()
@@ -882,23 +860,13 @@ UnitT ≡ᵀ? Pi nA B = no λ ()
 UnitT ≡ᵀ? Sigma nA' B' = no λ ()
 UnitT ≡ᵀ? CaseT U f = no λ ()
 Dyn ≡ᵀ? Bot = no λ ()
-Dyn ≡ᵀ? Top = no λ ()
 Dyn ≡ᵀ? UnitT = no λ ()
 Dyn ≡ᵀ? Single V A = no λ ()
 Dyn ≡ᵀ? Label L = no λ ()
 Dyn ≡ᵀ? Pi nA B = no λ ()
 Dyn ≡ᵀ? Sigma nA' B' = no λ ()
 Dyn ≡ᵀ? CaseT U f = no λ ()
-Top ≡ᵀ? Bot = no λ ()
-Top ≡ᵀ? Dyn = no λ ()
-Top ≡ᵀ? UnitT = no λ ()
-Top ≡ᵀ? Single V A = no λ ()
-Top ≡ᵀ? Label L = no λ ()
-Top ≡ᵀ? Pi nA B = no λ ()
-Top ≡ᵀ? Sigma nA' B' = no λ ()
-Top ≡ᵀ? CaseT U f = no λ ()
 Single V A ≡ᵀ? Bot = no λ ()
-Single V A ≡ᵀ? Top = no λ ()
 Single V A ≡ᵀ? UnitT = no λ ()
 Single V A ≡ᵀ? Dyn = no λ ()
 Single V A ≡ᵀ? Label L = no λ ()
@@ -906,7 +874,6 @@ Single V A ≡ᵀ? Pi nA B = no λ ()
 Single V A ≡ᵀ? Sigma nA' B' = no λ ()
 Single V A ≡ᵀ? CaseT U f = no λ ()
 Label L ≡ᵀ? Bot = no λ ()
-Label L ≡ᵀ? Top = no λ ()
 Label L ≡ᵀ? UnitT = no λ ()
 Label L ≡ᵀ? Dyn = no λ ()
 Label L ≡ᵀ? Single V A = no λ ()
@@ -914,7 +881,6 @@ Label L ≡ᵀ? Pi nA B = no λ ()
 Label L ≡ᵀ? Sigma nA' B' = no λ ()
 Label L ≡ᵀ? CaseT U f = no λ ()
 Pi nA B ≡ᵀ? Bot = no λ ()
-Pi nA B ≡ᵀ? Top = no λ ()
 Pi nA B ≡ᵀ? UnitT = no λ ()
 Pi nA B ≡ᵀ? Dyn = no λ ()
 Pi nA B ≡ᵀ? Single V A = no λ ()
@@ -922,7 +888,6 @@ Pi nA B ≡ᵀ? Label L = no λ ()
 Pi nA B ≡ᵀ? Sigma nA' B' = no λ ()
 Pi nA B ≡ᵀ? CaseT U f = no λ ()
 Sigma nA' B' ≡ᵀ? Bot = no λ ()
-Sigma nA' B' ≡ᵀ? Top = no λ ()
 Sigma nA' B' ≡ᵀ? UnitT = no λ ()
 Sigma nA' B' ≡ᵀ? Dyn = no λ ()
 Sigma nA' B' ≡ᵀ? Single V A = no λ ()
@@ -930,7 +895,6 @@ Sigma nA' B' ≡ᵀ? Label L = no λ ()
 Sigma nA' B' ≡ᵀ? Pi nA B = no λ ()
 Sigma nA' B' ≡ᵀ? CaseT U f = no λ ()
 CaseT U f ≡ᵀ? Bot = no λ ()
-CaseT U f ≡ᵀ? Top = no λ ()
 CaseT U f ≡ᵀ? UnitT = no λ ()
 CaseT U f ≡ᵀ? Dyn = no λ ()
 CaseT U f ≡ᵀ? Single V A = no λ ()

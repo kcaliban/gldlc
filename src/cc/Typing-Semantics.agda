@@ -104,7 +104,6 @@ data _⊢_◁_ {n} where
 
 data _⊢_≤ᵀ_ {n} where
   ASubBot : {Γ : TEnv {n}} {T : Ty {n}} {ok : Γ ⊢ T} → Γ ⊢ Bot ≤ᵀ T
-  ASubTop : {Γ : TEnv {n}} {T : Ty {n}} {ok : Γ ⊢ T} → Γ ⊢ T ≤ᵀ Top
   ASubDyn : {Γ : TEnv {n}} → Γ ⊢ Dyn ≤ᵀ Dyn  
   ASubUnit : {Γ : TEnv {n}} → Γ ⊢ UnitT ≤ᵀ UnitT
   ASubLabel : {Γ : TEnv {n}} {L L' : Subset n} → L ⊆ L' → Γ ⊢ Label L ≤ᵀ Label L'
@@ -212,8 +211,6 @@ data _⊢_▷_ {n} where
          → Γ ⊢ LetE M N ▷ B
 
 data _⊢_⇓_ {n} where
-  AUBot-P : {Γ : TEnv {n}} → Γ ⊢ Bot ⇓ Pi Top Bot
-  AUBot-S : {Γ : TEnv {n}} → Γ ⊢ Bot ⇓ Sigma Bot Bot
   AURefl-P : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ Pi A B ⇓ Pi A B
   AURefl-S : {Γ : TEnv {n}} {A B : Ty {n}} → Γ ⊢ Sigma A B ⇓ Sigma A B
   AUCaseL-P : {Γ : TEnv {n}} {A B D : Ty {n}} {l : Fin n} {L : Subset n} {f : ∀ l → l ∈ L → Ty {n}} {e : Exp {n}} {U : ValU e}
@@ -249,7 +246,6 @@ data _⊢_⇓_ {n} where
 data TyNf {n} : Ty {n} → Set where
   NfDyn : TyNf Dyn
   NfBot : TyNf Bot
-  NfTop : TyNf Top
   NfUnit : TyNf UnitT
   NfLabel : {s : Subset n} → TyNf (Label s)
   NfPi : {A B : Ty {n}} → TyNf (Pi A B)
@@ -278,15 +274,14 @@ TyNf-lim-uniqueness {n} {.(Pi _ _)} NfPi NfPi = refl
 TyNf-lim-uniqueness {n} {.(Sigma _ _)} NfSigma NfSigma = refl
 TyNf-lim-uniqueness {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) (NfSingle{V = v'}{tybB = tybB'}) rewrite (Val-uniqueness v v') | (notSingle×Base-uniqueness tybB tybB') = refl
 
-TyNf×¬DynBotTop→TyNf-lim : {n : ℕ} {A : Ty {n}} → TyNf A → A ≢ Dyn × A ≢ Bot × A ≢ Top → TyNf-lim A
-TyNf×¬DynBotTop→TyNf-lim {n} {.Dyn} NfDyn (neq , neq' , neq'') = contradiction refl neq
-TyNf×¬DynBotTop→TyNf-lim {n} {.Bot} NfBot (neq , neq' , neq'') = contradiction refl neq'
-TyNf×¬DynBotTop→TyNf-lim {n} {.Top} NfTop (neq , neq' , neq'') = contradiction refl neq''
-TyNf×¬DynBotTop→TyNf-lim {n} {.UnitT} NfUnit (neq , neq' , neq'') = NfUnit
-TyNf×¬DynBotTop→TyNf-lim {n} {.(Label _)} NfLabel (neq , neq' , neq'') = NfLabel
-TyNf×¬DynBotTop→TyNf-lim {n} {.(Pi _ _)} NfPi (neq , neq' , neq'') = NfPi
-TyNf×¬DynBotTop→TyNf-lim {n} {.(Sigma _ _)} NfSigma (neq , neq' , neq'') = NfSigma
-TyNf×¬DynBotTop→TyNf-lim {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) (neq , neq' , neq'') = (NfSingle{V = v}{tybB = tybB})
+TyNf×¬DynBot→TyNf-lim : {n : ℕ} {A : Ty {n}} → TyNf A → A ≢ Dyn × A ≢ Bot → TyNf-lim A
+TyNf×¬DynBot→TyNf-lim {n} {.Dyn} NfDyn (neq , neq') = contradiction refl neq
+TyNf×¬DynBot→TyNf-lim {n} {.Bot} NfBot (neq , neq') = contradiction refl neq'
+TyNf×¬DynBot→TyNf-lim {n} {.UnitT} NfUnit (neq , neq') = NfUnit
+TyNf×¬DynBot→TyNf-lim {n} {.(Label _)} NfLabel (neq , neq') = NfLabel
+TyNf×¬DynBot→TyNf-lim {n} {.(Pi _ _)} NfPi (neq , neq') = NfPi
+TyNf×¬DynBot→TyNf-lim {n} {.(Sigma _ _)} NfSigma (neq , neq') = NfSigma
+TyNf×¬DynBot→TyNf-lim {n} {.(Single _ _)} (NfSingle{V = v}{tybB = tybB}) (neq , neq') = (NfSingle{V = v}{tybB = tybB})
 
 TyG⊂TyNf : {n : ℕ} {A : Ty {n}} → TyG A → TyNf A
 TyG⊂TyNf {n} {.UnitT} GUnit = NfUnit
@@ -336,7 +331,6 @@ TyG×¬TyB-in {n} {Single (Cast e x x₁) UnitT} (GSingleUnit{V = V}) ¬tyba = S
 
 data ¬TyG×TyNf {n : ℕ} : Ty {n} → Set where
   Bot : ¬TyG×TyNf Bot
-  Top : ¬TyG×TyNf Top  
   Dyn : ¬TyG×TyNf Dyn
   Pi : {A B : Ty {n}} → (A ≢ Dyn ⊎ B ≢ Dyn) → ¬TyG×TyNf (Pi A B)
   Sigma : {A B : Ty {n}} → (A ≢ Dyn ⊎ B ≢ Dyn) → ¬TyG×TyNf (Sigma A B)
@@ -347,7 +341,6 @@ data ¬TyG×TyNf-lim {n : ℕ} : Ty {n} → Set where
 
 ¬TyG×TyNf-in : {n : ℕ} {A : Ty {n}} → ¬ (TyG A) → TyNf A → ¬TyG×TyNf A
 ¬TyG×TyNf-in {n} {.Bot} ntyg NfBot = Bot
-¬TyG×TyNf-in {n} {.Top} ntyg NfTop = Top
 ¬TyG×TyNf-in {n} {.Dyn} ntyg NfDyn = Dyn
 ¬TyG×TyNf-in {n} {.UnitT} ntyg NfUnit = contradiction (GUnit) ntyg
 ¬TyG×TyNf-in {n} {.(Label _)} ntyg NfLabel = contradiction (GLabel) ntyg
@@ -411,17 +404,6 @@ TyG×TyNf-lim⇒match-equiv {n} {.(Single _ UnitT)} GSingleUnit (NfSingle{tybB =
 ¬TyG×TyNf-lim-in⇒match-inequiv {n} {(Pi A B)} ntyg NfPi | Pi (inj₂ y) = λ x₁ → contradiction (proj₂ (Pi-equiv x₁)) (A≢B→B≢A y)
 ¬TyG×TyNf-lim-in⇒match-inequiv {n} {(Sigma A B)} ntyg NfSigma | Sigma (inj₁ x) = λ x₁ → contradiction (proj₁ (Sigma-equiv x₁)) (A≢B→B≢A x)
 ¬TyG×TyNf-lim-in⇒match-inequiv {n} {(Sigma A B)} ntyg NfSigma | Sigma (inj₂ y) = λ x₁ → contradiction (proj₂ (Sigma-equiv x₁)) (A≢B→B≢A y)
-{-
-¬TyG×TyNf-in⇒match-inequiv {n} {A} {neq , neq' , neq''} ntyg tynf
-  with ¬TyG×TyNf-in ntyg tynf
-...  | Dyn = contradiction refl neq
-...  | Bot = contradiction refl neq'
-...  | Top = contradiction refl neq''
-¬TyG×TyNf-in⇒match-inequiv {n} {(Pi A B)} {neq} ntyg NfPi | Pi (inj₁ x) = λ x₁ → contradiction (proj₁ (Pi-equiv x₁)) (A≢B→B≢A x)
-¬TyG×TyNf-in⇒match-inequiv {n} {(Pi A B)} {neq} ntyg NfPi | Pi (inj₂ y) = λ x₁ → contradiction (proj₂ (Pi-equiv x₁)) (A≢B→B≢A y)
-¬TyG×TyNf-in⇒match-inequiv {n} {(Sigma A B)} {neq} ntyg NfSigma | Sigma (inj₁ x) = λ x₁ → contradiction (proj₁ (Sigma-equiv x₁)) (A≢B→B≢A x)
-¬TyG×TyNf-in⇒match-inequiv {n} {(Sigma A B)} {neq} ntyg NfSigma | Sigma (inj₂ y) = λ x₁ → contradiction (proj₂ (Sigma-equiv x₁)) (A≢B→B≢A y)
--}
 
 ------------------------------------------------------------------------
 -- Algorithm for subtyping, limited to ground and base types
@@ -665,14 +647,12 @@ evaluate-step-type (Single x (Sigma A A₁)) | yes v = stuck
 evaluate-step-type (Single x (CaseT x₁ f)) | yes v = stuck
 evaluate-step-type (Single x Bot) | yes v = stuck
 evaluate-step-type (Single x Dyn) | yes v = stuck
-evaluate-step-type (Single x Top) | yes v = stuck
 
 evaluate-step-type (Label x) = result (RNf NfLabel)
 evaluate-step-type (Pi A A₁) = result (RNf NfPi)
 evaluate-step-type (Sigma A A₁) = result (RNf NfSigma)
 evaluate-step-type Dyn = result (RNf NfDyn)
 evaluate-step-type Bot = result (RNf NfBot)
-evaluate-step-type Top = result (RNf NfTop)
 
 evaluate-step-type (CaseT{s = s} x f)
   with evaluate-step-expr x
@@ -799,19 +779,13 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 ...  | no ¬tyga
      with A ≡ᵀ? Bot
 ...     | yes eq' = stuck
-...     | no ¬eq'
-        with A ≡ᵀ? Top
-...        | yes eq'' = stuck
-...        | no ¬eq'' = step (Cast-Factor-L{v = v}{nfA = TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq' , ¬eq'')} ((A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tyga (TyNf×¬DynBotTop→TyNf-lim nfA (¬eq , ¬eq' , ¬eq''))))))
+...     | no ¬eq' = step (Cast-Factor-L{v = v}{nfA = TyNf×¬DynBot→TyNf-lim nfA (¬eq , ¬eq')} ((A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tyga (TyNf×¬DynBot→TyNf-lim nfA (¬eq , ¬eq'))))))
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁
   with TyG? B
 ...  | no ¬tygb rewrite eq
      with B ≡ᵀ? Bot
 ...     | yes eq' rewrite eq' = step (Cast-Bot-R{v = v} nfA)
-...     | no ¬eq'
-        with B ≡ᵀ? Top
-...        | yes eq'' = stuck
-...        | no ¬eq'' = step (Cast-Factor-R {v = v} {nfB = TyNf×¬DynBotTop→TyNf-lim nfB (¬eq₁ , ¬eq' , ¬eq'')} (A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tygb (TyNf×¬DynBotTop→TyNf-lim nfB (¬eq₁ , ¬eq' , ¬eq'')))))
+...     | no ¬eq' = step (Cast-Factor-R {v = v} {nfB = TyNf×¬DynBot→TyNf-lim nfB (¬eq₁ , ¬eq')} (A≢B→B≢A (¬TyG×TyNf-lim-in⇒match-inequiv ¬tygb (TyNf×¬DynBot→TyNf-lim nfB (¬eq₁ , ¬eq')))))
 evaluate-step-expr (Cast .UnitE Dyn B) | result (RValue VUnit) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
 evaluate-step-expr (Cast .(LabI _) Dyn B) | result (RValue VLab) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
 evaluate-step-expr (Cast .(Abs _) Dyn B) | result (RValue VFun) | result (RNf nfA) | result (RNf nfB) | yes eq | no ¬eq₁ | yes tygb = stuck
@@ -887,7 +861,6 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB
   with ¬TyG×TyNf-in ¬tygB nfB
 ...  | Dyn = contradiction refl ¬eq₁
-...  | Top = stuck
 ...  | Bot = step (Cast-Bot-R{v = v} nfA)
 -- A = Pi
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | yes tygA | no ¬tygB | Pi x
@@ -936,7 +909,6 @@ evaluate-step-expr (Cast .(ProdV _ _) (Sigma Dyn Dyn) (Sigma A B)) | result (RVa
 evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB
   with ¬TyG×TyNf-in ¬tygA nfA
 ...  | Dyn = contradiction refl ¬eq
-...  | Top = stuck
 ...  | Bot = stuck
 -- A = Pi
 evaluate-step-expr (Cast e (Pi A B) C) | result (RValue v) | result (RNf NfPi) | result (RNf nfB) | no ¬eq | no ¬eq₁ | no ¬tygA | yes tygB | Pi x
@@ -979,20 +951,11 @@ evaluate-step-expr (Cast e A B) | result (RValue v) | result (RNf nfA) | result 
 ...  | Bot | Pi x = stuck
 ...  | Bot | Sigma x = stuck
 ...  | Bot | Dyn = stuck
-...  | Bot | Top = stuck
 ...  | Bot | Bot = step (Cast-Bot-R{v = v} nfA)
-...  | Top | Top = stuck
-...  | Top | Pi x = stuck
-...  | Top | Sigma x = stuck
-...  | Top | Dyn = stuck
-...  | Top | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Dyn | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Pi x | Bot = step (Cast-Bot-R{v = v} nfA)
 ...  | Sigma x | Bot = step (Cast-Bot-R{v = v} nfA)
-...  | Pi x | Top = stuck
-...  | Sigma x | Top = stuck
 ...  | Dyn | Dyn = contradiction refl ¬eq
-...  | Dyn | Top = contradiction refl ¬eq
 ...  | Dyn | Pi x = contradiction refl ¬eq
 ...  | Pi x | Dyn = contradiction refl ¬eq₁
 ...  | Dyn | Sigma x = contradiction refl ¬eq
@@ -1083,10 +1046,6 @@ cast Bot A B
 ...  | no ¬eq = nothing
 cast Dyn A B
   with A ≡ᵀ? Dyn
-...  | yes eq = just B
-...  | no ¬eq = nothing
-cast Top A B
-  with A ≡ᵀ? Top
 ...  | yes eq = just B
 ...  | no ¬eq = nothing
 

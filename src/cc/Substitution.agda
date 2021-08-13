@@ -41,7 +41,6 @@ open import Aux
 
 ↑ᵀ d , c [ UnitT ] = UnitT
 ↑ᵀ d , c [ Bot ] = Bot
-↑ᵀ d , c [ Top ] = Top
 ↑ᵀ d , c [ Dyn ] = Dyn
 ↑ᵀ d , c [ Single x A ] = Single ↑ d , c [ x ] ↑ᵀ d , c [ A ]
 ↑ᵀ d , c [ Label x ] = Label x
@@ -85,7 +84,6 @@ open import Aux
 [_↦_]ᵀ_ {n} k e (Sigma T T₁) = Sigma ([ k ↦ e ]ᵀ T) ([ ℕ.suc k ↦ ↑ ℤ.pos 1 , 0 [ e ] ]ᵀ T₁)
 [_↦_]ᵀ_ {n} k e (CaseT x f) = CaseT ([ k ↦ e ] x) (λ l ins → [ k ↦ e ]ᵀ (f l ins))
 [_↦_]ᵀ_ {n} k e Bot = Bot
-[_↦_]ᵀ_ {n} k e Top = Top
 [_↦_]ᵀ_ {n} k e Dyn = Dyn
 
 
